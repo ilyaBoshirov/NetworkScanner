@@ -4,6 +4,9 @@
 #include <QtNetwork/QNetworkInterface>
 #include <QTextStream>
 #include <QTcpSocket>
+#include <winsock.h>
+#include <string>
+
 
 #define timeout 10
 
@@ -15,7 +18,7 @@ void pingIsHostActive(QHostAddress ipAddress) {
 
 }
 
-QMap<QString, QPair<QHostAddress, QHostAddress>> getNetworks() {
+QMap<QString, QPair<QHostAddress, QHostAddress>> getCurrentNetworks() {
     QMap<QString, QPair<QHostAddress, QHostAddress>> ifacesAddresses;
 
     QTextStream cout(stdout);
@@ -57,7 +60,7 @@ QMap<QString, QPair<QHostAddress, QHostAddress>> getNetworks() {
 }
 
 
-QList<quint32> getOpenPorts(QHostAddress ipAddress, quint32 firstPort = 1, quint32 lastPort = 10000) {
+QList<quint32> getHostOpenPorts(QHostAddress ipAddress, quint32 firstPort = 1, quint32 lastPort = 10000) {
     QTcpSocket socket;
 
     QList<quint32> openPorts{};
@@ -79,15 +82,13 @@ QString getServiceName(QHostAddress ipAddress, quint32 port) {
     if(!socket.waitForConnected(timeout)){
         return "PORT CLOSE";
     }
-
-    socket.write("hello[pkqopwkeqwekjqweqwnjei");
-    socket.waitForBytesWritten();
-
-    qDebug() << socket.bytesAvailable();
-    qDebug() << socket.readAll();
-
     socket.close();
 
+//    std::string serviceName = "NA";
+//    struct servent* serviceInfo;
+//    serviceInfo = getservbyport(htons(445),  NULL);
+//    if(serviceInfo != NULL)
+//        serviceName =  std::string(serviceInfo->s_name);
 
 
     return "";
@@ -95,11 +96,18 @@ QString getServiceName(QHostAddress ipAddress, quint32 port) {
 
 
 int main() {
-    auto networks = getNetworks();
+
+    auto networks = getCurrentNetworks();
+
+    foreach(auto network, networks) {
+        qDebug() << getHostOpenPorts(network.first);
+     }
+
+//    qDebug() << networks["Беспроводная сеть 2"].first << networks["Беспроводная сеть 2"].second;
 
 //    auto q = getOpenPorts(networks["Ethernet"].first);
 
-    auto name = getServiceName(networks["Ethernet"].first, 5040);
+//    auto name = getServiceName(networks["Ethernet"].first, 5040);
 
     return 0;
 }
