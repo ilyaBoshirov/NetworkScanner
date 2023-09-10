@@ -7,6 +7,8 @@
 #include <winsock.h>
 #include <string>
 
+#include "dbconnector.h"
+
 
 #define timeout 10
 
@@ -59,7 +61,6 @@ QMap<QString, QPair<QHostAddress, QHostAddress>> getCurrentNetworks() {
     return ifacesAddresses;
 }
 
-
 QList<quint32> getHostOpenPorts(QHostAddress ipAddress, quint32 firstPort = 1, quint32 lastPort = 10000) {
     QTcpSocket socket;
 
@@ -74,7 +75,6 @@ QList<quint32> getHostOpenPorts(QHostAddress ipAddress, quint32 firstPort = 1, q
 
     return openPorts;
 }
-
 
 QString getServiceName(QHostAddress ipAddress, quint32 port) {
     QTcpSocket socket;
@@ -94,14 +94,17 @@ QString getServiceName(QHostAddress ipAddress, quint32 port) {
     return "";
 }
 
-
 int main() {
+    qDebug() << "here";
+    DBConnector dbConnector{};
+    dbConnector.createNewTable("test");
 
-    auto networks = getCurrentNetworks();
 
-    foreach(auto network, networks) {
-        qDebug() << getHostOpenPorts(network.first);
-     }
+//    auto networks = getCurrentNetworks();
+
+//    foreach(auto network, networks) {
+//        qDebug() << getHostOpenPorts(network.first);
+//     }
 
 //    qDebug() << networks["Беспроводная сеть 2"].first << networks["Беспроводная сеть 2"].second;
 
