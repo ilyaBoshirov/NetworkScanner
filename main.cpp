@@ -1,116 +1,24 @@
 //#include "mainwindow.h"
 
 #include <QApplication>
-#include <QtNetwork/QNetworkInterface>
-#include <QTextStream>
-#include <QTcpSocket>
-#include <winsock.h>
-#include <string>
 
-#include "dbconnector.h"
+#include "dbmanager.h"
+#include "scanner.h"
 
 
-#define timeout 10
+int main(int argc, char *argv[]) {
+    QApplication a(argc, argv);
 
-void arpIsHostActive(QHostAddress ipAddress) {
+//    DBManager dbManager{};
+//    dbManager.chooseTable("test");
+//    dbManager.addNewIP("192.168.1.1");
 
-}
+    Scanner scanner{};
+//    scanner.getCurrentNetworks();
 
-void pingIsHostActive(QHostAddress ipAddress) {
+    QString ip = "255.255.34.109";
 
-}
-
-QMap<QString, QPair<QHostAddress, QHostAddress>> getCurrentNetworks() {
-    QMap<QString, QPair<QHostAddress, QHostAddress>> ifacesAddresses;
-
-    QTextStream cout(stdout);
-    auto ifaces = QNetworkInterface::allInterfaces();
-
-    foreach (auto iface, ifaces) {
-        auto ifaceFlags = iface.flags();
-
-        if ((bool)(ifaceFlags & iface.IsLoopBack) == true) {
-            continue;
-        }
-
-        if ((bool)(ifaceFlags & iface.IsRunning) != true) {
-            continue;
-        }
-
-        auto ifaceName = iface.humanReadableName();
-
-        if (ifaceName.contains("VMware")) {
-            continue;
-        }
-
-        if (ifaceName.contains("Virtualbox")) {
-            continue;
-        }
-
-        auto addressEntries = iface.addressEntries();
-
-        foreach (auto entry, addressEntries) {
-            auto ifaceIP = entry.ip();
-
-            if (QAbstractSocket::IPv4Protocol == ifaceIP.protocol()) {
-                ifacesAddresses[ifaceName] = qMakePair(ifaceIP, entry.netmask());
-            }
-        }
-    }
-
-    return ifacesAddresses;
-}
-
-QList<quint32> getHostOpenPorts(QHostAddress ipAddress, quint32 firstPort = 1, quint32 lastPort = 10000) {
-    QTcpSocket socket;
-
-    QList<quint32> openPorts{};
-    for(auto i = firstPort; i < lastPort; ++i){
-        socket.connectToHost(ipAddress.toString(), i);
-        if(socket.waitForConnected(timeout)){
-            openPorts.append(i);
-            socket.disconnectFromHost();
-        }
-    }
-
-    return openPorts;
-}
-
-QString getServiceName(QHostAddress ipAddress, quint32 port) {
-    QTcpSocket socket;
-    socket.connectToHost(ipAddress.toString(), port);
-    if(!socket.waitForConnected(timeout)){
-        return "PORT CLOSE";
-    }
-    socket.close();
-
-//    std::string serviceName = "NA";
-//    struct servent* serviceInfo;
-//    serviceInfo = getservbyport(htons(445),  NULL);
-//    if(serviceInfo != NULL)
-//        serviceName =  std::string(serviceInfo->s_name);
-
-
-    return "";
-}
-
-int main() {
-    qDebug() << "here";
-    DBConnector dbConnector{};
-    dbConnector.createNewTable("test");
-
-
-//    auto networks = getCurrentNetworks();
-
-//    foreach(auto network, networks) {
-//        qDebug() << getHostOpenPorts(network.first);
-//     }
-
-//    qDebug() << networks["Беспроводная сеть 2"].first << networks["Беспроводная сеть 2"].second;
-
-//    auto q = getOpenPorts(networks["Ethernet"].first);
-
-//    auto name = getServiceName(networks["Ethernet"].first, 5040);
+    qInfo() << Scanner::integerToIp(Scanner::ipToInteger(ip));
 
     return 0;
 }
