@@ -14,11 +14,9 @@ int main(int argc, char *argv[]) {
 //    dbManager.addNewIP("192.168.1.1");
 
     Scanner scanner{};
+    scanner.detectActiveHostsICMP();
+    qInfo() << scanner.getActiveHosts();
 //    scanner.getCurrentNetworks();
-
-    QString ip = "255.255.34.109";
-
-    qInfo() << Scanner::integerToIp(Scanner::ipToInteger(ip));
 
     return 0;
 }
