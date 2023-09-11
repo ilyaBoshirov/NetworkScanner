@@ -14,8 +14,9 @@ int main(int argc, char *argv[]) {
 //    dbManager.addNewIP("192.168.1.1");
 
     Scanner scanner{};
-    scanner.detectActiveHostsICMP();
-    qInfo() << scanner.getActiveHosts();
+    qInfo() << scanner.getServiceName("1", 1);
+//    scanner.detectActiveHostsSYN();
+//    qInfo() << scanner.getActiveHosts();
 //    scanner.getCurrentNetworks();
 
     return 0;
