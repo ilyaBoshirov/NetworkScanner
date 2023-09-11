@@ -9,7 +9,15 @@
 void Scanner::detectActiveHostsARP() {
 
 }
-QString getServiceName(QString ipAddress, quint32 port) {
+QString Scanner::getServiceName(QString ipAddress, quint32 port) {
+    QTcpSocket socket;
+
+    socket.connectToHost("172.16.16.192", 22);
+    if(socket.waitForConnected(timeout)){
+        qDebug() << socket.peerName();
+        qDebug() << QString::fromUtf8(socket.read(1024));
+    }
+    socket.disconnectFromHost();
 
     return "TODO";
 }
@@ -59,7 +67,7 @@ void Scanner::detectActiveHostsICMP() {
     QString pingWaitTime = "10"; //(ms)
 
     foreach (auto host, hosts) {
-        int exitCode = QProcess::execute("ping",QStringList() << host <<nParameter<<pingCount<<wParameter<<pingWaitTime);
+        int exitCode = QProcess::execute("ping", QStringList() << host <<nParameter<<pingCount<<wParameter<<pingWaitTime);
         if (exitCode==0){
             this->activeHosts.append(host);
         }
