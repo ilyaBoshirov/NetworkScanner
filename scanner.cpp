@@ -1,23 +1,85 @@
 #include "scanner.h"
 
 #include <QTcpSocket>
+#include <QProcess>
 
-Scanner::Scanner() {}
 
+// TODO
 
-void Scanner::detectActiveHostsICMP() {
-
-}
 void Scanner::detectActiveHostsARP() {
 
 }
-void Scanner::detectActiveHostsACK() {
-
-}
-
 QString getServiceName(QString ipAddress, quint32 port) {
 
     return "TODO";
+}
+
+// COMPLETE
+
+Scanner::Scanner() {
+    this->scannedNetworks = getCurrentNetworks();
+}
+
+Scanner::Scanner(const QList<QString>& scannedNetworks) {
+    this->scannedNetworks = scannedNetworks;
+}
+
+QList<QString> Scanner::getScannedNetworks() {
+    return this->scannedNetworks;
+}
+
+QList<QString> Scanner::getActiveHosts() {
+    return this->activeHosts;
+}
+
+QMap<QString,QString> Scanner::getHostsOS() {
+    return this->hostsOS;
+}
+
+QMap<QString,QString> Scanner::getHostsPorts() {
+    return this->hostsPorts;
+}
+
+QList<QString> Scanner::getNetworksHosts() {
+    QList<QString> networksHosts{};
+
+    foreach (auto network, this->scannedNetworks) {
+        networksHosts += getNetworkIPs(network);
+    }
+
+    return networksHosts;
+}
+
+void Scanner::detectActiveHostsICMP() {
+    auto hosts = this->getNetworksHosts();
+
+    QString nParameter = "-n";
+    QString pingCount = "1"; //(int)
+    QString wParameter = "-w";
+    QString pingWaitTime = "10"; //(ms)
+
+    foreach (auto host, hosts) {
+        int exitCode = QProcess::execute("ping",QStringList() << host <<nParameter<<pingCount<<wParameter<<pingWaitTime);
+        if (exitCode==0){
+            this->activeHosts.append(host);
+        }
+    }
+}
+
+void Scanner::detectActiveHostsSYN() {
+    auto hosts = this->getNetworksHosts();
+    QTcpSocket socket;
+
+    foreach (const auto& host, hosts) {
+        foreach(const auto& port, this->defaultSYNPorts) {
+            socket.connectToHost(host, port);
+            if(socket.waitForConnected(timeout)){
+                this->activeHosts.append(host);
+                break;
+            }
+        }
+        socket.disconnectFromHost();
+    }
 }
 
 QList<quint32> Scanner::detectHostOpenPorts(QHostAddress ipAddress, QList<quint32> ports) {
@@ -85,9 +147,32 @@ QMap<QString, QString> Scanner::getCurrentIPs() {
     return ifacesAddresses;
 }
 
-QMap<QString, QString> Scanner::getCurrentNetworks() {
-    QMap<QString, QString> ifacesAddresses;
+QList<QString> Scanner::getCurrentNetworks() {
+    QList<QString> networks{};
+    auto ifaces = QNetworkInterface::allInterfaces();
 
+    foreach (auto iface, ifaces) {
+
+        if (!isPhysicalInterface(iface)) {
+            continue;
+        }
+
+        auto addressEntries = iface.addressEntries();
+
+        foreach (auto entry, addressEntries) {
+            auto ifaceIP = entry.ip();
+
+            if (QAbstractSocket::IPv4Protocol == ifaceIP.protocol()) {
+                networks.append(getNetwork(ifaceIP, entry.netmask()));
+            }
+        }
+    }
+
+    return networks;
+}
+
+QMap<QString, QString> Scanner::getPhysicalInterfaces() {
+    QMap<QString, QString> ifacesAddresses{};
     auto ifaces = QNetworkInterface::allInterfaces();
 
     foreach (auto iface, ifaces) {
@@ -106,8 +191,6 @@ QMap<QString, QString> Scanner::getCurrentNetworks() {
             }
         }
     }
-
-    qDebug() << ifacesAddresses;
 
     return ifacesAddresses;
 }
@@ -151,7 +234,23 @@ QString Scanner::getNetwork(QHostAddress ip, QHostAddress netmask) {
 QList<QString> Scanner::getNetworkIPs(QString network) {
     // network in format "192.168.0.0/24"
 
-    return QList<QString>{};
+    auto networkParts = network.split("/");
+
+    auto start = ipToInteger(networkParts[0]);
+    auto mask = networkParts[1].toInt();
+
+    if (mask == 32) {
+        return QList<QString>{};
+    }
+
+    auto hostNumber = (1 << (32 - networkParts[1].toInt())) - 1;
+
+    QList<QString> hosts{};
+    for(auto i{1}; i < hostNumber; ++i) {
+        hosts.append(integerToIp(start + i));
+    }
+
+    return hosts;
 }
 
 quint32 Scanner::ipToInteger(QString stringIP) {
