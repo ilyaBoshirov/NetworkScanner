@@ -13,7 +13,7 @@ QString Scanner::getServiceName(QString ipAddress, quint32 port) {
     QTcpSocket socket;
 
     socket.connectToHost("172.16.16.192", 22);
-    if(socket.waitForConnected(timeout)){
+    if(socket.waitForConnected(scanTimeout)){
         qDebug() << socket.peerName();
         qDebug() << QString::fromUtf8(socket.read(1024));
     }
@@ -81,7 +81,7 @@ void Scanner::detectActiveHostsSYN() {
     foreach (const auto& host, hosts) {
         foreach(const auto& port, this->defaultSYNPorts) {
             socket.connectToHost(host, port);
-            if(socket.waitForConnected(timeout)){
+            if(socket.waitForConnected(scanTimeout)){
                 this->activeHosts.append(host);
                 break;
             }
@@ -97,7 +97,7 @@ QList<quint32> Scanner::detectHostOpenPorts(QHostAddress ipAddress, QList<quint3
 
     foreach (auto port, ports) {
         socket.connectToHost(ipAddress.toString(), port);
-        if(socket.waitForConnected(timeout)){
+        if(socket.waitForConnected(scanTimeout)){
             openPorts.append(port);
             socket.disconnectFromHost();
         }
@@ -289,6 +289,19 @@ QString Scanner::integerToIp(quint32 integerIP) {
     stringIP.append(QString::number(integerIP & 0xff));
 
     return stringIP;
+}
+
+QString Scanner::currentNetworksToQSting() {
+    auto currentNetworks = getCurrentNetworks();
+
+    QString networksString{""};
+
+    foreach (const auto network, currentNetworks) {
+        networksString.append(network);
+        networksString.append(";");
+    }
+
+    return networksString;
 }
 
 // -------------------------------------------------------------------------------------

@@ -5,7 +5,7 @@
 #include <QMap>
 #include <QtNetwork/QNetworkInterface>  // QHostAddress
 
-#define timeout 10
+#define scanTimeout 10
 
 class Scanner {
     QList<QString> scannedNetworks{};
@@ -40,6 +40,7 @@ public:
     static bool isPhysicalInterface(QNetworkInterface interface);
     static quint32 ipToInteger(QString stringIP);
     static QString integerToIp(quint32 integerIP);
+    static QString currentNetworksToQSting();
 };
 
 #endif // SCANNER_H
