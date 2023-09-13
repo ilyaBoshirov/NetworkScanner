@@ -3,6 +3,9 @@
 
 #include <QMainWindow>
 
+#include "dbmanager.h"
+#include "scanner.h"
+
 QT_BEGIN_NAMESPACE
 namespace Ui {
     class MainWindow;
@@ -10,27 +13,51 @@ namespace Ui {
 QT_END_NAMESPACE
 
 enum PageTypes {
-    welcomePage,
-    hostSelectingPage,
-    hostDetectingPage
+    WelcomePage,
+    NetworkSelectingPage,
+    ScanningTypePage,
+    HostDetectingPage
 };
 
-class MainWindow : public QMainWindow
-{
+enum NetworkInitializationTypes {
+    Manual,
+    File,
+    CurrentNetwork
+};
+
+enum ScanningTypes {
+    Ping,
+    ARP,
+    SYN
+};
+
+class MainWindow : public QMainWindow {
     Q_OBJECT
 
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+    void openPage(const PageTypes &pageType);
+    void drowWelcomePage();
+    void drowNetworkSelectingPage();
+    void drowScanningTypePage();
+    void drowHostDetectingPage();
+
 private slots:
     void exitButton_clicked();
     void nextButton_clicked();
     void prevButton_clicked();
+    void radioButton_clicked();
 
 private:
     Ui::MainWindow *ui;
 
-    quint32 currentWindow = PageTypes::welcomePage;
+    quint32 currentWindow{};
+    qint32 networkInitializationType{ -1 };
+    QList<ScanningTypes> scanningTypes{};
+
+    Scanner scanner{};
+    DBManager dbManager{};
 };
 #endif // MAINWINDOW_H
