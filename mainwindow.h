@@ -43,6 +43,7 @@ public:
     void drowNetworkSelectingPage();
     void drowScanningTypePage();
     void drowHostDetectingPage();
+    void setNetworkInput();
 
 private slots:
     void exitButton_clicked();

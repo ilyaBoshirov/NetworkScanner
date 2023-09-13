@@ -18,7 +18,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 //    connect(ui->prevButton, &QPushButton::clicked, this, &MainWindow::prevButton_clicked);
 
     this->currentWindow = PageTypes::WelcomePage;
-    ui->prevButton->setDisabled(true);
+    ui->workSpace->setCurrentIndex(this->currentWindow);
+    this->drowWelcomePage();
 }
 
 MainWindow::~MainWindow() {
@@ -26,7 +27,10 @@ MainWindow::~MainWindow() {
 }
 
 void MainWindow::openPage(const PageTypes &pageType) {
+    auto prevPage = PageTypes(ui->workSpace->currentIndex());
+
     ui->workSpace->setCurrentIndex(pageType);
+
     this->currentWindow = pageType;
 
     // page items controll
@@ -37,8 +41,12 @@ void MainWindow::openPage(const PageTypes &pageType) {
         this->drowNetworkSelectingPage();
     }
     else if(pageType == PageTypes::ScanningTypePage) {
-        ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
-        ui->prevButton->setDisabled(false);
+
+        if (prevPage == PageTypes::NetworkSelectingPage) {
+            this->scanner;
+        }
+
+        this->drowScanningTypePage();
     }
     else if(pageType == PageTypes::HostDetectingPage) {
         ui->nextButton->setDisabled(true);
@@ -53,19 +61,26 @@ void MainWindow::drowWelcomePage() {
 
 void MainWindow::drowNetworkSelectingPage() {
     // set label and inputs (current networks)
-    ui->currentNetworks->setText(Scanner::currentNetworksToQSting());
-    ui->manualNetworkInput->setDisabled(!ui->manulaRadioButton->isChecked());
-    ui->fileNetworkInput->setDisabled(!ui->fileRadioButton->isChecked());
-    ui->fileChoiseButton->setDisabled(!ui->fileRadioButton->isChecked());
+    this->setNetworkInput();
 
     // navigation buttons
     ui->nextButton->setDisabled(this->networkInitializationType == -1 ? true : false);
     ui->prevButton->setDisabled(false);
-
 }
 
-void drowScanningTypePage();
+void MainWindow::drowScanningTypePage() {
+    ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
+    ui->prevButton->setDisabled(false);
+}
 void drowHostDetectingPage();
+
+void MainWindow::setNetworkInput() {
+    ui->currentNetworksLabel->setText(Scanner::currentNetworksToQSting());
+    ui->manualNetworkInput->setDisabled(!ui->manulaRadioButton->isChecked());
+    ui->fileNetworkInput->setDisabled(!ui->fileRadioButton->isChecked());
+    ui->fileChoiseButton->setDisabled(!ui->fileRadioButton->isChecked());
+
+}
 
 // slots realization
 
@@ -82,17 +97,20 @@ void MainWindow::prevButton_clicked() {
 }
 
 void MainWindow::radioButton_clicked() {
-    // manual radio button
-    ui->manualNetworkInput->setDisabled(ui->manulaRadioButton->isChecked() != true);
+    this->setNetworkInput();
 
-    // file radio button
-    if (ui->fileRadioButton->isChecked()) {
-
+    if(ui->manulaRadioButton->isChecked()) {
+        this->networkInitializationType = NetworkInitializationTypes::Manual;
     }
 
-    // current network radio button
-    if (ui->currentNetRadioButton->isChecked()) {
-
+    if(ui->fileRadioButton->isChecked()) {
+        this->networkInitializationType = NetworkInitializationTypes::File;
     }
+
+    if(ui->currentNetRadioButton->isChecked()) {
+        this->networkInitializationType = NetworkInitializationTypes::CurrentNetwork;
+    }
+
+    ui->nextButton->setDisabled(this->networkInitializationType == -1 ? true : false);
 }
 
