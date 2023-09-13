@@ -2,6 +2,9 @@
 
 #include <QTcpSocket>
 #include <QProcess>
+#include <QFile>
+#include <QTextStream>
+#include <QRegularExpression>
 
 
 // TODO
@@ -47,6 +50,36 @@ QMap<QString,QString> Scanner::getHostsOS() {
 QMap<QString,QString> Scanner::getHostsPorts() {
     return this->hostsPorts;
 }
+
+void Scanner::setNetworksFromFile(const QString& filePath) {
+    QFile file(filePath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        qDebug() << "Error open file" << filePath;
+        return;
+    }
+
+    QList<QString> networks{};
+    QRegularExpression re("(\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3})/(\\d{1,2})");
+    QRegularExpressionMatchIterator matchIterator;
+    QRegularExpressionMatch match;
+    QTextStream in(&file);
+    while (!in.atEnd()) {
+        QString line = in.readLine();
+        matchIterator = re.globalMatch(line);
+
+        while (matchIterator.hasNext()) {
+            match = matchIterator.next();
+            QString net = match.captured();
+            if(networkIsCorrect(net)) {
+                networks.append(net);
+            }
+        }
+
+    }
+    qDebug() << networks;
+    this->scannedNetworks = networks;
+}
+
 
 QList<QString> Scanner::getNetworksHosts() {
     QList<QString> networksHosts{};
@@ -302,6 +335,27 @@ QString Scanner::currentNetworksToQSting() {
     }
 
     return networksString;
+}
+
+bool Scanner::networkIsCorrect(QString networkString) {
+    auto networkParts = networkString.split("/");
+
+    auto ipOctets = networkParts[0].split(".");
+    auto mask = networkParts[1].toInt();
+
+    if (mask > 32 || mask < 1) {
+        return false;
+    }
+
+    foreach (auto octet, ipOctets) {
+        auto intOctet = octet.toInt();
+
+        if (intOctet > 255 || intOctet < 1) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 // -------------------------------------------------------------------------------------

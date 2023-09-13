@@ -24,6 +24,9 @@ public:
     QMap<QString,QString> getHostsOS();
     QMap<QString,QString> getHostsPorts();
 
+    void setNetworksFromFile(const QString& filePath);
+    void setNetworksFromQString(const QString& filePath);
+
     void detectActiveHostsICMP();
     void detectActiveHostsARP();
     void detectActiveHostsSYN();
@@ -41,6 +44,7 @@ public:
     static quint32 ipToInteger(QString stringIP);
     static QString integerToIp(quint32 integerIP);
     static QString currentNetworksToQSting();
+    static bool networkIsCorrect(QString networkString);
 };
 
 #endif // SCANNER_H
