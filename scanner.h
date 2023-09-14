@@ -5,15 +5,26 @@
 #include <QMap>
 #include <QtNetwork/QNetworkInterface>  // QHostAddress
 
+#include <mutex>
+#include <thread>
+
 #define scanTimeout 10
 
 class Scanner {
     QList<QString> scannedNetworks{};
+    QList<QString> scannedHosts{};
     QList<QString> activeHosts{};
     QMap<QString,QString> hostsOS{};
     QMap<QString,QString> hostsPorts{};
 
+    size_t nextScannedHostIndex {0};
+    size_t completedHostNumber {0};
+
     const QList<quint32> defaultSYNPorts = {22, 135, 139, 445};
+
+    std::mutex getNextHostMutex;  // mutex for reading state
+    std::mutex addActiveHostMutex;  // mutex for adding solution in structure
+    std::mutex incCompletedHostNumberMutex;  // mutex for adding true in vector when thread end working
 
 public:
     Scanner();
@@ -29,9 +40,20 @@ public:
     void initByCurrentNetworks();
     void initByNetworksString(QString& networksString);
 
-    void detectActiveHostsICMP();
-    void detectActiveHostsARP();
-    void detectActiveHostsSYN();
+    void detectActiveHostsICMP(size_t threadNumber);
+    void detectActiveHostsARP(size_t threadNumber);
+    void detectActiveHostsSYN(size_t threadNumber);
+
+    void addActiveHost(QString host);
+    QString getNextHost();
+
+    size_t getCompletedHostNumber();
+    void incCompletedHostNumber();
+    void threadPingCheckHosts();
+    void threadArpCheckHosts();
+    void threadSynCheckHosts();
+
+    size_t getAllHostNumber();
 
     QList<quint32> detectHostOpenPorts(QHostAddress ipAddress, QList<quint32> ports);
     QString getServiceName(QString ipAddress, quint32 port);

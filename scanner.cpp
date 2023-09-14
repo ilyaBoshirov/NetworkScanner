@@ -6,12 +6,15 @@
 #include <QTextStream>
 #include <QRegularExpression>
 
+#include <thread>
+
 
 // TODO
 
-void Scanner::detectActiveHostsARP() {
+void Scanner::detectActiveHostsARP(size_t threadNumber) {
 
 }
+
 QString Scanner::getServiceName(QString ipAddress, quint32 port) {
     QTcpSocket socket;
 
@@ -40,6 +43,7 @@ QList<QString> Scanner::getScannedNetworks() {
 }
 
 QList<QString> Scanner::getActiveHosts() {
+    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
     return this->activeHosts;
 }
 
@@ -95,7 +99,6 @@ void Scanner::initByNetworksString(QString& networksString) {
     }
 }
 
-
 QList<QString> Scanner::getNetworksHosts() {
     QList<QString> networksHosts{};
 
@@ -106,37 +109,103 @@ QList<QString> Scanner::getNetworksHosts() {
     return networksHosts;
 }
 
-void Scanner::detectActiveHostsICMP() {
-    auto hosts = this->getNetworksHosts();
+void Scanner::incCompletedHostNumber() {
+    std::lock_guard<std::mutex> lg(this->incCompletedHostNumberMutex);
+    ++this->completedHostNumber;
+}
 
+size_t Scanner::getCompletedHostNumber() {
+    std::lock_guard<std::mutex> lg(this->incCompletedHostNumberMutex);
+    return this->completedHostNumber;
+}
+
+void Scanner::detectActiveHostsICMP(size_t threadNumber) {
+    this->scannedHosts = this->getNetworksHosts();
+
+    if (threadNumber == 0 || threadNumber == 1) {
+        this->threadPingCheckHosts();
+    }
+    else {
+        for (auto i{ 0 }; i < threadNumber; ++i) {
+            std::thread worker(&Scanner::threadPingCheckHosts, this);
+            worker.detach();
+        }
+    }
+}
+
+void Scanner::threadPingCheckHosts() {
     QString nParameter = "-n";
     QString pingCount = "1"; //(int)
     QString wParameter = "-w";
     QString pingWaitTime = "10"; //(ms)
 
-    foreach (auto host, hosts) {
-        int exitCode = QProcess::execute("ping", QStringList() << host <<nParameter<<pingCount<<wParameter<<pingWaitTime);
-        if (exitCode==0){
-            this->activeHosts.append(host);
+    while (true) {
+        auto host = this->getNextHost();
+        if (host == "") {
+            break;
+        }
+
+        auto exitCode = QProcess::execute("ping", QStringList() << host <<nParameter<<pingCount<<wParameter<<pingWaitTime);
+
+        if (exitCode == 0) {
+            this->addActiveHost(host);
+        }
+
+        this->incCompletedHostNumber();
+    }
+}
+
+void Scanner::detectActiveHostsSYN(size_t threadNumber) {
+    this->scannedHosts = this->getNetworksHosts();
+
+    if (threadNumber == 0 || threadNumber == 1) {
+        std::thread worker(&Scanner::threadSynCheckHosts, this);
+        worker.detach();
+    }
+    else {
+        for (auto i{ 0 }; i < threadNumber; ++i) {
+            std::thread worker(&Scanner::threadSynCheckHosts, this);
+            worker.detach();
         }
     }
 }
 
-void Scanner::detectActiveHostsSYN() {
-    auto hosts = this->getNetworksHosts();
+void Scanner::threadSynCheckHosts() {
     QTcpSocket socket;
 
-    foreach (const auto& host, hosts) {
+    while (true) {
+        auto host = this->getNextHost();
+        if (host == "") {
+            break;
+        }
+
         foreach(const auto& port, this->defaultSYNPorts) {
             socket.connectToHost(host, port);
             if(socket.waitForConnected(scanTimeout)){
-                this->activeHosts.append(host);
+                socket.disconnectFromHost();
+                this->addActiveHost(host);
                 break;
             }
+            socket.disconnectFromHost();
         }
-        socket.disconnectFromHost();
+
+        this->incCompletedHostNumber();
     }
 }
+
+QString Scanner::getNextHost() {
+    std::lock_guard<std::mutex> lg(this->getNextHostMutex);
+    return (this-> nextScannedHostIndex < this->scannedHosts.size() ? this->scannedHosts.at(this-> nextScannedHostIndex++) : "");
+}
+
+void Scanner::addActiveHost(QString host) {
+    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
+    this->activeHosts.append(host);
+}
+
+
+bool threadArpCheckHost();
+
 
 QList<quint32> Scanner::detectHostOpenPorts(QHostAddress ipAddress, QList<quint32> ports) {
     QTcpSocket socket;
@@ -154,33 +223,25 @@ QList<quint32> Scanner::detectHostOpenPorts(QHostAddress ipAddress, QList<quint3
     return openPorts;
 }
 
-bool Scanner::isPhysicalInterface(QNetworkInterface interface) {
-    auto ifaceFlags = interface.flags();
+size_t Scanner::getAllHostNumber() {
+    size_t allHostNumber{0};
 
-    if ((bool)(ifaceFlags & interface.IsLoopBack) == true) {
-        return false;
+    if (this->scannedNetworks.size() == 0) {
+        return allHostNumber;
     }
 
-    if ((bool)(ifaceFlags & interface.IsRunning) != true) {
-        return false;
+    foreach (auto net, this->getScannedNetworks()) {
+        auto mask = net.split("/")[1].toInt();
+
+        allHostNumber += size_t(1 << (32 - mask)) - 2;
     }
-
-    auto ifaceName = interface.humanReadableName();
-
-    if (ifaceName.contains("VMware")) {
-        return false;
-    }
-
-    if (ifaceName.contains("Virtualbox")) {
-        return false;
-    }
-
-    return true;
+    return allHostNumber;
 }
 
-QMap<QString, QString> Scanner::getCurrentIPs() {
-    QMap<QString, QString> ifacesAddresses;
+// static methods
 
+QMap<QString, QString> Scanner::getPhysicalInterfaces() {
+    QMap<QString, QString> ifacesAddresses{};
     auto ifaces = QNetworkInterface::allInterfaces();
 
     foreach (auto iface, ifaces) {
@@ -195,7 +256,7 @@ QMap<QString, QString> Scanner::getCurrentIPs() {
             auto ifaceIP = entry.ip();
 
             if (QAbstractSocket::IPv4Protocol == ifaceIP.protocol()) {
-                ifacesAddresses[iface.humanReadableName()] = ifaceIP.toString();
+                ifacesAddresses[iface.humanReadableName()] = getNetwork(ifaceIP, entry.netmask());
             }
         }
     }
@@ -227,8 +288,9 @@ QList<QString> Scanner::getCurrentNetworks() {
     return networks;
 }
 
-QMap<QString, QString> Scanner::getPhysicalInterfaces() {
-    QMap<QString, QString> ifacesAddresses{};
+QMap<QString, QString> Scanner::getCurrentIPs() {
+    QMap<QString, QString> ifacesAddresses;
+
     auto ifaces = QNetworkInterface::allInterfaces();
 
     foreach (auto iface, ifaces) {
@@ -243,7 +305,7 @@ QMap<QString, QString> Scanner::getPhysicalInterfaces() {
             auto ifaceIP = entry.ip();
 
             if (QAbstractSocket::IPv4Protocol == ifaceIP.protocol()) {
-                ifacesAddresses[iface.humanReadableName()] = getNetwork(ifaceIP, entry.netmask());
+                ifacesAddresses[iface.humanReadableName()] = ifaceIP.toString();
             }
         }
     }
@@ -307,6 +369,30 @@ QList<QString> Scanner::getNetworkIPs(QString network) {
     }
 
     return hosts;
+}
+
+bool Scanner::isPhysicalInterface(QNetworkInterface interface) {
+    auto ifaceFlags = interface.flags();
+
+    if ((bool)(ifaceFlags & interface.IsLoopBack) == true) {
+        return false;
+    }
+
+    if ((bool)(ifaceFlags & interface.IsRunning) != true) {
+        return false;
+    }
+
+    auto ifaceName = interface.humanReadableName();
+
+    if (ifaceName.contains("VMware")) {
+        return false;
+    }
+
+    if (ifaceName.contains("Virtualbox")) {
+        return false;
+    }
+
+    return true;
 }
 
 quint32 Scanner::ipToInteger(QString stringIP) {
