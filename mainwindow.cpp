@@ -2,6 +2,7 @@
 #include "ui_mainwindow.h"
 
 #include <QFileDialog>
+#include <thread>
 
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -23,9 +24,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     // file dialog
     connect(ui->fileDialogOpenButton, &QPushButton::clicked, this, &MainWindow::fileDialogOpenButton_clicked);
 
-
     // scanning type check box
-//    connect(ui->prevButton, &QPushButton::clicked, this, &MainWindow::prevButton_clicked);
+    connect(ui->pingCheckBox, &QCheckBox::stateChanged, this, &MainWindow::pingCheckBox_change);
+    connect(ui->arpCheckBox, &QCheckBox::stateChanged, this, &MainWindow::arpCheckBox_change);
+    connect(ui->synCheckBox, &QCheckBox::stateChanged, this, &MainWindow::synCheckBox_change);
 
     this->currentWindow = PageTypes::WelcomePage;
     ui->workSpace->setCurrentIndex(this->currentWindow);
@@ -53,14 +55,27 @@ void MainWindow::openPage(const PageTypes &pageType) {
     else if(pageType == PageTypes::ScanningTypePage) {
 
         if (prevPage == PageTypes::NetworkSelectingPage) {
-            this->scanner;
+            // init scanner
+            if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
+                QString netStr {ui->manualNetworkInput->text()};
+                this->scanner.initByNetworksString(netStr);
+            }
+
+            if (this->networkInitializationType == NetworkInitializationTypes::File) {
+                QString filePath {ui->fileNetworkInput->text()};
+                this->scanner.setNetworksFromFile(filePath);
+            }
+
+            if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
+                QString netStr {ui->manualNetworkInput->text()};
+                this->scanner.initByCurrentNetworks();
+            }
         }
 
         this->drowScanningTypePage();
     }
     else if(pageType == PageTypes::HostDetectingPage) {
-        ui->nextButton->setDisabled(true);
-        ui->prevButton->setDisabled(false);
+        this->startActiveHostDetection();
     }
 }
 
@@ -82,6 +97,7 @@ void MainWindow::drowScanningTypePage() {
     ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
     ui->prevButton->setDisabled(false);
 }
+
 void drowHostDetectingPage();
 
 void MainWindow::setNetworkInput() {
@@ -90,6 +106,61 @@ void MainWindow::setNetworkInput() {
     ui->fileNetworkInput->setDisabled(!ui->fileRadioButton->isChecked());
     ui->fileDialogOpenButton->setDisabled(!ui->fileRadioButton->isChecked());
 
+}
+
+void MainWindow::addScanningType(ScanningTypes type) {
+    this->scanningTypes.append(type);
+    ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
+}
+
+void MainWindow::removeScanningType(ScanningTypes type) {
+    this->scanningTypes.removeAll(type);
+    ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
+}
+
+void MainWindow::startActiveHostDetection() {
+    // buttons
+    ui->nextButton->setDisabled(true);
+    ui->prevButton->setDisabled(false);
+
+    // write progress bar
+    ui->hostDetectionProgressBar->setMinimum(0);
+    ui->hostDetectionProgressBar->setMaximum(this->scanner.getAllHostNumber());
+
+    // start threading
+    this->scanner.detectActiveHostsSYN(1);
+
+    // waiting for thread
+    this->waitingHostDetection();
+
+    qDebug() << this->scanner.getActiveHosts();
+
+    // end
+
+}
+
+void MainWindow::waitingHostDetection() {
+//    if (this->threadNumber != 0) {
+    size_t allHostsNumber = this->scanner.getAllHostNumber();
+    size_t index{0};
+
+    QList<QString> hosts{};
+    while (this->scanner.getCompletedHostNumber() < allHostsNumber) {
+        ui->hostDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+
+        hosts = this->scanner.getActiveHosts();
+
+        auto hostsLength = hosts.size();
+        for (; index < hostsLength; ++index) {
+            ui->activeHostBrowser->append(hosts.at(index) + " is ACTIVE;\n");
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    };
+    ui->hostDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+//    }
+
+     qDebug() << "\rComplete 100%";
 }
 
 // slots realization
@@ -150,6 +221,33 @@ void MainWindow::manualNetwork_change() {
         ui->nextButton->setDisabled(false);
     } else {
         ui->nextButton->setDisabled(true);
+    }
+}
+
+void MainWindow::pingCheckBox_change(int state) {
+    if (state == 0) {
+        this->removeScanningType(ScanningTypes::Ping);
+    }
+    if (state == 2) {
+        this->addScanningType(ScanningTypes::Ping);
+    }
+}
+
+void MainWindow::arpCheckBox_change(int state) {
+    if (state == 0) {
+        this->removeScanningType(ScanningTypes::ARP);
+    }
+    if (state == 2) {
+        this->addScanningType(ScanningTypes::ARP);
+    }
+}
+
+void MainWindow::synCheckBox_change(int state) {
+    if (state == 0) {
+        this->removeScanningType(ScanningTypes::SYN);
+    }
+    if (state == 2) {
+        this->addScanningType(ScanningTypes::SYN);
     }
 }
 

@@ -45,6 +45,12 @@ public:
     void drowHostDetectingPage();
     void setNetworkInput();
 
+    void addScanningType(ScanningTypes type);
+    void removeScanningType(ScanningTypes type);
+
+    void startActiveHostDetection();
+    void waitingHostDetection();
+
 private slots:
     void exitButton_clicked();
     void nextButton_clicked();
@@ -52,6 +58,9 @@ private slots:
     void radioButton_clicked();
     void fileDialogOpenButton_clicked();
     void manualNetwork_change();
+    void pingCheckBox_change(int state);
+    void arpCheckBox_change(int state);
+    void synCheckBox_change(int state);
 
 private:
     Ui::MainWindow *ui;
