@@ -50,12 +50,15 @@ private slots:
     void nextButton_clicked();
     void prevButton_clicked();
     void radioButton_clicked();
+    void fileDialogOpenButton_clicked();
+    void manualNetwork_change();
 
 private:
     Ui::MainWindow *ui;
 
     quint32 currentWindow{};
     qint32 networkInitializationType{ -1 };
+    bool networksIsCorrect {false};
     QList<ScanningTypes> scanningTypes{};
 
     Scanner scanner{};

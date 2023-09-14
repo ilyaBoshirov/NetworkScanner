@@ -1,6 +1,9 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
+#include <QFileDialog>
+
+
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
 
@@ -13,6 +16,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->manulaRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
     connect(ui->fileRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
     connect(ui->currentNetRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
+
+    // manual input
+    connect(ui->manualNetworkInput, &QLineEdit::textChanged, this, &MainWindow::manualNetwork_change);
+
+    // file dialog
+    connect(ui->fileDialogOpenButton, &QPushButton::clicked, this, &MainWindow::fileDialogOpenButton_clicked);
+
 
     // scanning type check box
 //    connect(ui->prevButton, &QPushButton::clicked, this, &MainWindow::prevButton_clicked);
@@ -64,7 +74,7 @@ void MainWindow::drowNetworkSelectingPage() {
     this->setNetworkInput();
 
     // navigation buttons
-    ui->nextButton->setDisabled(this->networkInitializationType == -1 ? true : false);
+    ui->nextButton->setDisabled(!this->networksIsCorrect);
     ui->prevButton->setDisabled(false);
 }
 
@@ -78,7 +88,7 @@ void MainWindow::setNetworkInput() {
     ui->currentNetworksLabel->setText(Scanner::currentNetworksToQSting());
     ui->manualNetworkInput->setDisabled(!ui->manulaRadioButton->isChecked());
     ui->fileNetworkInput->setDisabled(!ui->fileRadioButton->isChecked());
-    ui->fileChoiseButton->setDisabled(!ui->fileRadioButton->isChecked());
+    ui->fileDialogOpenButton->setDisabled(!ui->fileRadioButton->isChecked());
 
 }
 
@@ -109,8 +119,37 @@ void MainWindow::radioButton_clicked() {
 
     if(ui->currentNetRadioButton->isChecked()) {
         this->networkInitializationType = NetworkInitializationTypes::CurrentNetwork;
+
+        ui->nextButton->setDisabled(false);
     }
 
-    ui->nextButton->setDisabled(this->networkInitializationType == -1 ? true : false);
+
+}
+
+void MainWindow::fileDialogOpenButton_clicked() {
+    auto fileName = QFileDialog::getOpenFileName(
+                        this,
+                        tr("Open File"),
+                        QApplication::applicationFilePath(),
+                        "All fils (*.*);;Text files (*.txt)"
+                    );
+
+    ui->fileNetworkInput->setText(fileName);
+    this->scanner.setNetworksFromFile(fileName);
+
+    if (this->scanner.getScannedNetworks().size() == 0) {
+        ui->nextButton->setDisabled(true);
+    } else {
+        ui->nextButton->setDisabled(false);
+    }
+
+}
+
+void MainWindow::manualNetwork_change() {
+    if (Scanner::networkIsCorrect(ui->manualNetworkInput->text())) {
+        ui->nextButton->setDisabled(false);
+    } else {
+        ui->nextButton->setDisabled(true);
+    }
 }
 
