@@ -28,7 +28,7 @@ QString Scanner::getServiceName(QString ipAddress, quint32 port) {
 // COMPLETE
 
 Scanner::Scanner() {
-    this->scannedNetworks = getCurrentNetworks();
+//    this->scannedNetworks = getCurrentNetworks();
 }
 
 Scanner::Scanner(const QList<QString>& scannedNetworks) {
@@ -78,6 +78,21 @@ void Scanner::setNetworksFromFile(const QString& filePath) {
     }
     qDebug() << networks;
     this->scannedNetworks = networks;
+}
+
+void Scanner::initByCurrentNetworks() {
+    this->scannedNetworks = getCurrentNetworks();
+}
+
+void Scanner::initByNetworksString(QString& networksString) {
+    auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
+
+    this->scannedNetworks.clear();
+    foreach (auto network, networks) {
+        if (!networkIsCorrect(network)) {
+            this->scannedNetworks.append(network);
+        }
+    }
 }
 
 
@@ -340,6 +355,10 @@ QString Scanner::currentNetworksToQSting() {
 bool Scanner::networkIsCorrect(QString networkString) {
     auto networkParts = networkString.split("/");
 
+    if (networkParts.size() != 2) {
+        return false;
+    }
+
     auto ipOctets = networkParts[0].split(".");
     auto mask = networkParts[1].toInt();
 
@@ -347,16 +366,34 @@ bool Scanner::networkIsCorrect(QString networkString) {
         return false;
     }
 
+    if (ipOctets.size() != 4) {
+        return false;
+    }
+
     foreach (auto octet, ipOctets) {
         auto intOctet = octet.toInt();
 
-        if (intOctet > 255 || intOctet < 1) {
+        if (intOctet > 255 || intOctet < 0) {
             return false;
         }
     }
 
     return true;
 }
+
+bool Scanner::networksStringIsCorrect(QString networksString) {
+
+    auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
+
+    foreach (auto network, networks) {
+        if (!networkIsCorrect(network)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 
 // -------------------------------------------------------------------------------------
 

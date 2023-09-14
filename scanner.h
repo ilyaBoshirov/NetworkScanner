@@ -26,6 +26,8 @@ public:
 
     void setNetworksFromFile(const QString& filePath);
     void setNetworksFromQString(const QString& filePath);
+    void initByCurrentNetworks();
+    void initByNetworksString(QString& networksString);
 
     void detectActiveHostsICMP();
     void detectActiveHostsARP();
@@ -45,6 +47,7 @@ public:
     static QString integerToIp(quint32 integerIP);
     static QString currentNetworksToQSting();
     static bool networkIsCorrect(QString networkString);
+    static bool networksStringIsCorrect(QString networksString);
 };
 
 #endif // SCANNER_H
