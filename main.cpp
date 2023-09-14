@@ -5,8 +5,7 @@
 
 
 int main(int argc, char *argv[]) {
-    Scanner scanner{};
-    scanner.setNetworksFromFile("D:\\Projects\\QtProjects\\NetworkScanner\\input.txt");
+    Scanner::networksStringIsCorrect("172.16.19.0/24,192.123.0.1/11");
 
     QApplication a(argc, argv);
 
