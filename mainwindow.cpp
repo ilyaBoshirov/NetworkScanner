@@ -3,6 +3,7 @@
 
 #include <QFileDialog>
 #include <thread>
+#include <QRegularExpression>
 
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -13,8 +14,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->nextButton, &QPushButton::clicked, this, &MainWindow::nextButton_clicked);
     connect(ui->prevButton, &QPushButton::clicked, this, &MainWindow::prevButton_clicked);
 
-    // network input radio buttons
-    connect(ui->manulaRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
+    // network input page -------------------------------------------------------------------------
+    connect(ui->manualRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
     connect(ui->fileRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
     connect(ui->currentNetRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
 
@@ -24,10 +25,29 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     // file dialog
     connect(ui->fileDialogOpenButton, &QPushButton::clicked, this, &MainWindow::fileDialogOpenButton_clicked);
 
-    // scanning type check box
-    connect(ui->pingCheckBox, &QCheckBox::stateChanged, this, &MainWindow::pingCheckBox_change);
-    connect(ui->arpCheckBox, &QCheckBox::stateChanged, this, &MainWindow::arpCheckBox_change);
-    connect(ui->synCheckBox, &QCheckBox::stateChanged, this, &MainWindow::synCheckBox_change);
+    // scanning page -------------------------------------------------------------------------------
+    connect(ui->pingRadioButton, &QPushButton::clicked, this, &MainWindow::scanTypeRadioBtn_clicked);
+    connect(ui->arpRadioButton, &QPushButton::clicked, this, &MainWindow::scanTypeRadioBtn_clicked);
+    connect(ui->synRadioButton, &QPushButton::clicked, this, &MainWindow::scanTypeRadioBtn_clicked);
+
+    ui->threadNumberBox->setMinimum(1);
+
+    // port selection page  ----------------------------------------------------------------------
+    ui->firstPortValue->setMinimum(Scanner::firstPort);
+    ui->firstPortValue->setMaximum(Scanner::lastPort);
+
+    ui->lastPortValue->setMinimum(Scanner::firstPort);
+    ui->lastPortValue->setMaximum(Scanner::lastPort);
+
+    connect(ui->manualPortRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
+    connect(ui->rangePortRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
+    connect(ui->allPortsRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
+
+    connect(ui->firstPortValue, &QSpinBox::valueChanged, this, &MainWindow::selectPortSpinBox_valueChanged);
+
+    connect(ui->manulPortLineEdit, &QLineEdit::textChanged, this, &MainWindow::manualPorts_change);
+
+    // make welcome page first --------------------------------------------------------------------
 
     this->currentWindow = PageTypes::WelcomePage;
     ui->workSpace->setCurrentIndex(this->currentWindow);
@@ -77,6 +97,15 @@ void MainWindow::openPage(const PageTypes &pageType) {
     else if(pageType == PageTypes::HostDetectingPage) {
         this->startActiveHostDetection();
     }
+    else if(pageType == PageTypes::PortsSelectingPage) {
+        this->drowPortsSelectingPage();
+    }
+    else if(pageType == PageTypes::PortsDetectingPage) {
+        this->startOpenPortsDetection();
+    }
+    else if(pageType == PageTypes::ExitPage) {
+
+    }
 }
 
 void MainWindow::drowWelcomePage() {
@@ -94,28 +123,42 @@ void MainWindow::drowNetworkSelectingPage() {
 }
 
 void MainWindow::drowScanningTypePage() {
-    ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
+    ui->nextButton->setDisabled(this->scanningType == -1 ? true : false);
     ui->prevButton->setDisabled(false);
 }
 
-void drowHostDetectingPage();
+bool MainWindow::portsIsCheck() {
+    return (
+        ui->manualRadioButton->isChecked() &&
+        ui->rangePortRadioButton->isChecked() &&
+        ui->allPortsRadioButton->isChecked()
+        );
+}
+
+void MainWindow::drowPortsSelectingPage() {
+    // set inputs (current networks)
+    ui->manulPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
+
+    ui->firstPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+    ui->lastPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+
+    // navigation buttons
+    ui->nextButton->setDisabled(!this->portsIsCheck());
+    ui->prevButton->setDisabled(false);
+}
+
+void MainWindow::drowExitPage() {
+    ui->nextButton->setDisabled(true);
+    ui->prevButton->setDisabled(false);
+}
+
 
 void MainWindow::setNetworkInput() {
     ui->currentNetworksLabel->setText(Scanner::currentNetworksToQSting());
-    ui->manualNetworkInput->setDisabled(!ui->manulaRadioButton->isChecked());
+    ui->manualNetworkInput->setDisabled(!ui->manualRadioButton->isChecked());
     ui->fileNetworkInput->setDisabled(!ui->fileRadioButton->isChecked());
     ui->fileDialogOpenButton->setDisabled(!ui->fileRadioButton->isChecked());
 
-}
-
-void MainWindow::addScanningType(ScanningTypes type) {
-    this->scanningTypes.append(type);
-    ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
-}
-
-void MainWindow::removeScanningType(ScanningTypes type) {
-    this->scanningTypes.removeAll(type);
-    ui->nextButton->setDisabled(this->scanningTypes.size() == 0 ? true : false);
 }
 
 void MainWindow::startActiveHostDetection() {
@@ -128,14 +171,24 @@ void MainWindow::startActiveHostDetection() {
     ui->hostDetectionProgressBar->setMaximum(this->scanner.getAllHostNumber());
 
     // start threading
-    this->scanner.detectActiveHostsSYN(1);
+
+    quint32 threadNumber = ui->threadNumberBox->value();
+
+    if (this->scanningType == ScanningTypes::Ping) {
+        this->scanner.detectActiveHostsICMP(threadNumber);
+    }
+    if (this->scanningType == ScanningTypes::ARP) {
+        this->scanner.detectActiveHostsARP(threadNumber);
+    }
+    if (this->scanningType == ScanningTypes::SYN) {
+        this->scanner.detectActiveHostsSYN(threadNumber);
+    }
 
     // waiting for thread
     this->waitingHostDetection();
 
-    qDebug() << this->scanner.getActiveHosts();
-
     // end
+    ui->nextButton->setDisabled(false);
 
 }
 
@@ -157,10 +210,112 @@ void MainWindow::waitingHostDetection() {
 
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     };
-    ui->hostDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
-//    }
 
-     qDebug() << "\rComplete 100%";
+    ui->hostDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+
+}
+
+bool MainWindow::portsStrIsCorrect() {
+    auto ports = ui->manulPortLineEdit->text().split(QRegularExpression("[,;\r\n\t ]+"));
+
+    QRegularExpression re("^(\\d{1,5})$");
+    QRegularExpressionMatch match;
+
+    foreach (auto port, ports) {
+        match = re.match(port);
+
+        if (!match.hasMatch()) {
+            return false;
+        }
+
+        auto intPort = match.captured(0).toInt();
+        if (intPort < 1 || intPort > 65535) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+QList<quint32> MainWindow::portsStrToQList(QString portsStr) {
+    auto ports = portsStr.split(QRegularExpression("[,;\r\n\t ]+"));
+
+    QList<quint32> intPorts{};
+    foreach (auto port, ports) {
+        intPorts.append(port.toInt());
+    }
+
+    return intPorts;
+}
+
+QList<quint32> MainWindow::getPortsForScan() {
+    QList<quint32> ports{};
+    if(ui->manualPortRadioButton->isChecked()) {
+        return portsStrToQList(ui->manulPortLineEdit->text());
+    }
+
+    if(ui->rangePortRadioButton->isChecked()) {
+        auto firstPort = ui->firstPortValue->value();
+        auto lastPort = ui->lastPortValue->value();
+
+        ports.resize(lastPort - firstPort + 1);
+        std::iota(ports.begin(), ports.end(), firstPort);
+        return ports;
+    }
+
+    if(ui->allPortsRadioButton->isChecked()) {
+        ports.resize(Scanner::lastPort);
+        std::iota(ports.begin(), ports.end(), Scanner::firstPort);
+        return ports;
+    }
+
+    return QList<quint32>{};
+}
+
+void MainWindow::startOpenPortsDetection() {
+    // buttons
+    ui->nextButton->setDisabled(true);
+    ui->prevButton->setDisabled(false);
+
+    auto portsForScan = this->getPortsForScan();
+
+    // write progress bar
+    ui->portsDetectionProgressBar->setMinimum(0);
+    ui->portsDetectionProgressBar->setMaximum(this->scanner.getActiveHosts().size());
+
+    // start threading
+
+    quint32 threadNumber = ui->threadNumberBox->value();
+
+    this->scanner.detectActiveHostsOpenPorts(portsForScan, threadNumber);
+
+    // waiting for thread
+    this->waitingOpenPortsDetection();
+
+    // end
+    ui->nextButton->setDisabled(false);
+
+}
+
+void MainWindow::waitingOpenPortsDetection() {
+    size_t allHostsNumber = this->scanner.getActiveHosts().size();
+    size_t index{0};
+
+    QList<QString> hostStatus{};
+    while (this->scanner.getCompletedHostNumber() < allHostsNumber) {
+        ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+
+        hostStatus = this->scanner.getHostsPortsStatus();
+
+        auto hostsLength = hostStatus.size();
+        for (; index < hostsLength; ++index) {
+            ui->openPortsBrowser->append(hostStatus.at(index) + "\n");
+        }
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    };
+
+    ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
 }
 
 // slots realization
@@ -179,8 +334,8 @@ void MainWindow::prevButton_clicked() {
 
 void MainWindow::radioButton_clicked() {
     this->setNetworkInput();
-
-    if(ui->manulaRadioButton->isChecked()) {
+    
+    if(ui->manualRadioButton->isChecked()) {
         this->networkInitializationType = NetworkInitializationTypes::Manual;
     }
 
@@ -224,30 +379,51 @@ void MainWindow::manualNetwork_change() {
     }
 }
 
-void MainWindow::pingCheckBox_change(int state) {
-    if (state == 0) {
-        this->removeScanningType(ScanningTypes::Ping);
+void MainWindow::scanTypeRadioBtn_clicked() {
+    this->setNetworkInput();
+
+    if(ui->pingRadioButton->isChecked()) {
+        this->scanningType = ScanningTypes::Ping;
     }
-    if (state == 2) {
-        this->addScanningType(ScanningTypes::Ping);
+
+    if(ui->arpRadioButton->isChecked()) {
+        this->scanningType = ScanningTypes::ARP;
+    }
+
+    if(ui->synRadioButton->isChecked()) {
+        this->scanningType = ScanningTypes::SYN;
+    }
+
+    ui->nextButton->setDisabled(false);
+}
+
+void MainWindow::portsInputRadioBtn_clicked() {
+    ui->manulPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
+    ui->firstPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+    ui->lastPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+    ui->nextButton->setDisabled(false);
+    if(ui->rangePortRadioButton->isChecked()) {
+        if (ui->lastPortValue->value() < ui->firstPortValue->value()){
+            ui->nextButton->setDisabled(true);
+        }
+    }
+    if(ui->manualPortRadioButton->isChecked()) {
+        this->manualPorts_change();
     }
 }
 
-void MainWindow::arpCheckBox_change(int state) {
-    if (state == 0) {
-        this->removeScanningType(ScanningTypes::ARP);
-    }
-    if (state == 2) {
-        this->addScanningType(ScanningTypes::ARP);
-    }
-}
-
-void MainWindow::synCheckBox_change(int state) {
-    if (state == 0) {
-        this->removeScanningType(ScanningTypes::SYN);
-    }
-    if (state == 2) {
-        this->addScanningType(ScanningTypes::SYN);
+void MainWindow::selectPortSpinBox_valueChanged() {
+    if (ui->lastPortValue->value() < ui->firstPortValue->value()){
+        ui->nextButton->setDisabled(true);
+    } else {
+        ui->nextButton->setDisabled(false);
     }
 }
 
+void MainWindow::manualPorts_change() {
+    if (this->portsStrIsCorrect()) {
+        ui->nextButton->setDisabled(false);
+    } else {
+        ui->nextButton->setDisabled(true);
+    }
+}

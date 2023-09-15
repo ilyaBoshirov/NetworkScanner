@@ -16,7 +16,10 @@ enum PageTypes {
     WelcomePage,
     NetworkSelectingPage,
     ScanningTypePage,
-    HostDetectingPage
+    HostDetectingPage,
+    PortsSelectingPage,
+    PortsDetectingPage,
+    ExitPage
 };
 
 enum NetworkInitializationTypes {
@@ -42,14 +45,20 @@ public:
     void drowWelcomePage();
     void drowNetworkSelectingPage();
     void drowScanningTypePage();
-    void drowHostDetectingPage();
+    void drowPortsSelectingPage();
+    void drowExitPage();
     void setNetworkInput();
-
-    void addScanningType(ScanningTypes type);
-    void removeScanningType(ScanningTypes type);
 
     void startActiveHostDetection();
     void waitingHostDetection();
+
+    bool portsIsCheck();
+    bool portsStrIsCorrect();
+    QList<quint32> getPortsForScan();
+    void startOpenPortsDetection();
+    void waitingOpenPortsDetection();
+
+    static QList<quint32> portsStrToQList(QString portsStr);
 
 private slots:
     void exitButton_clicked();
@@ -58,9 +67,10 @@ private slots:
     void radioButton_clicked();
     void fileDialogOpenButton_clicked();
     void manualNetwork_change();
-    void pingCheckBox_change(int state);
-    void arpCheckBox_change(int state);
-    void synCheckBox_change(int state);
+    void scanTypeRadioBtn_clicked();
+    void portsInputRadioBtn_clicked();
+    void selectPortSpinBox_valueChanged();
+    void manualPorts_change();
 
 private:
     Ui::MainWindow *ui;
@@ -68,7 +78,7 @@ private:
     quint32 currentWindow{};
     qint32 networkInitializationType{ -1 };
     bool networksIsCorrect {false};
-    QList<ScanningTypes> scanningTypes{};
+    qint32 scanningType{-1};
 
     Scanner scanner{};
     DBManager dbManager{};
