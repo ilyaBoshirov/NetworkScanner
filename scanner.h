@@ -15,7 +15,9 @@ class Scanner {
     QList<QString> scannedHosts{};
     QList<QString> activeHosts{};
     QMap<QString,QString> hostsOS{};
-    QMap<QString,QString> hostsPorts{};
+
+    QMap<QPair<QString,quint32>, bool> hostsPorts{};
+    QList<QString> hostsPortsStatus{};
 
     size_t nextScannedHostIndex {0};
     size_t completedHostNumber {0};
@@ -27,13 +29,16 @@ class Scanner {
     std::mutex incCompletedHostNumberMutex;  // mutex for adding true in vector when thread end working
 
 public:
+    static const quint32 lastPort {65535};
+    static const quint32 firstPort {1};
+
     Scanner();
     Scanner(const QList<QString>& scannedNetworks);
 
     QList<QString> getScannedNetworks();
     QList<QString> getActiveHosts();
     QMap<QString,QString> getHostsOS();
-    QMap<QString,QString> getHostsPorts();
+    QMap<QPair<QString,quint32>, bool> getHostsPorts();
 
     void setNetworksFromFile(const QString& filePath);
     void setNetworksFromQString(const QString& filePath);
@@ -55,7 +60,12 @@ public:
 
     size_t getAllHostNumber();
 
-    QList<quint32> detectHostOpenPorts(QHostAddress ipAddress, QList<quint32> ports);
+    void detectActiveHostsOpenPorts(QList<quint32> ports, size_t threadNumber);
+    void threadDetectHostOpenPorts(QList<quint32>& ports);
+    QString getNextActiveHost();
+    void addHostPortStatus(QString host, quint32 port, bool status);
+    QList<QString> getHostsPortsStatus();
+
     QString getServiceName(QString ipAddress, quint32 port);
     QList<QString> getNetworksHosts();
 

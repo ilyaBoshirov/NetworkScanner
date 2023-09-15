@@ -47,11 +47,16 @@ QList<QString> Scanner::getActiveHosts() {
     return this->activeHosts;
 }
 
+QList<QString> Scanner::getHostsPortsStatus() {
+    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
+    return this->hostsPortsStatus;
+}
+
 QMap<QString,QString> Scanner::getHostsOS() {
     return this->hostsOS;
 }
 
-QMap<QString,QString> Scanner::getHostsPorts() {
+QMap<QPair<QString,quint32>, bool> Scanner::getHostsPorts() {
     return this->hostsPorts;
 }
 
@@ -203,24 +208,59 @@ void Scanner::addActiveHost(QString host) {
     this->activeHosts.append(host);
 }
 
-
 bool threadArpCheckHost();
 
+void Scanner::detectActiveHostsOpenPorts(QList<quint32> ports, size_t threadNumber) {
+    this->nextScannedHostIndex = 0;
+    this->completedHostNumber = 0;
 
-QList<quint32> Scanner::detectHostOpenPorts(QHostAddress ipAddress, QList<quint32> ports) {
-    QTcpSocket socket;
-
-    QList<quint32> openPorts{};
-
-    foreach (auto port, ports) {
-        socket.connectToHost(ipAddress.toString(), port);
-        if(socket.waitForConnected(scanTimeout)){
-            openPorts.append(port);
-            socket.disconnectFromHost();
+    if (threadNumber == 0 || threadNumber == 1) {
+        std::thread worker(&Scanner::threadDetectHostOpenPorts, this, std::ref(ports));
+        worker.detach();
+    }
+    else {
+        for (auto i{ 0 }; i < threadNumber; ++i) {
+            std::thread worker(&Scanner::threadDetectHostOpenPorts, this, std::ref(ports));
+            worker.detach();
         }
     }
+}
 
-    return openPorts;
+QString Scanner::getNextActiveHost() {
+    std::lock_guard<std::mutex> lg(this->getNextHostMutex);
+    return (this-> nextScannedHostIndex < this->activeHosts.size() ? this->activeHosts.at(this-> nextScannedHostIndex++) : "");
+}
+
+void Scanner::addHostPortStatus(QString host, quint32 port, bool status) {
+    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
+    this->hostsPorts[qMakePair(host, port)] = true;
+
+    QString statusStr("Host %1 port %2 is %3");
+    this->hostsPortsStatus.append(statusStr.arg(host).arg(port).arg(status ? "OPEN" : "CLOSE/FILTERED"));
+}
+
+void Scanner::threadDetectHostOpenPorts(QList<quint32>& ports) {
+    QList<quint32> openPorts{};
+
+    QTcpSocket socket;
+
+    while (true) {
+        auto host = this->getNextActiveHost();
+        if (host == "") {
+            break;
+        }
+
+        foreach(const auto& port, ports) {
+            socket.connectToHost(host, port);
+            if(socket.waitForConnected(scanTimeout)){
+                socket.disconnectFromHost();
+                this->addHostPortStatus(host, port, true);
+            }
+            socket.disconnectFromHost();
+        }
+
+        this->incCompletedHostNumber();
+    }
 }
 
 size_t Scanner::getAllHostNumber() {
