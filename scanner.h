@@ -3,6 +3,7 @@
 
 #include <QList>
 #include <QMap>
+#include <QThread>
 #include <QtNetwork/QNetworkInterface>  // QHostAddress
 
 #include <mutex>
@@ -10,7 +11,11 @@
 
 #define scanTimeout 10
 
-class Scanner {
+class Scanner : public QThread {
+    Q_OBJECT
+
+private:
+
     QList<QString> scannedNetworks{};
     QList<QString> scannedHosts{};
     QList<QString> activeHosts{};
@@ -80,6 +85,10 @@ public:
     static QString currentNetworksToQSting();
     static bool networkIsCorrect(QString networkString);
     static bool networksStringIsCorrect(QString networksString);
+
+signals:
+    void hostIsComplete(QString hostIP, bool isActive);
+    void portIsComplete(QString hostIP, quint32 port, bool isActive);
 };
 
 #endif // SCANNER_H

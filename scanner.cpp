@@ -128,7 +128,8 @@ void Scanner::detectActiveHostsICMP(size_t threadNumber) {
     this->scannedHosts = this->getNetworksHosts();
 
     if (threadNumber == 0 || threadNumber == 1) {
-        this->threadPingCheckHosts();
+        std::thread worker(&Scanner::threadPingCheckHosts, this);
+        worker.detach();
     }
     else {
         for (auto i{ 0 }; i < threadNumber; ++i) {
@@ -154,6 +155,9 @@ void Scanner::threadPingCheckHosts() {
 
         if (exitCode == 0) {
             this->addActiveHost(host);
+//            emit this->hostIsComplete(host, true);
+        } else {
+//            emit this->hostIsComplete(host, false);
         }
 
         this->incCompletedHostNumber();
@@ -178,21 +182,27 @@ void Scanner::detectActiveHostsSYN(size_t threadNumber) {
 void Scanner::threadSynCheckHosts() {
     QTcpSocket socket;
 
+    bool hostIsActive;
     while (true) {
         auto host = this->getNextHost();
         if (host == "") {
             break;
         }
+        hostIsActive = false;
 
         foreach(const auto& port, this->defaultSYNPorts) {
             socket.connectToHost(host, port);
             if(socket.waitForConnected(scanTimeout)){
                 socket.disconnectFromHost();
                 this->addActiveHost(host);
+                hostIsActive = true;
+
                 break;
             }
             socket.disconnectFromHost();
         }
+
+        emit this->hostIsComplete(host, hostIsActive);
 
         this->incCompletedHostNumber();
     }
@@ -278,7 +288,7 @@ size_t Scanner::getAllHostNumber() {
     return allHostNumber;
 }
 
-// static methods
+// static methods -------------------------------------------------------------------------------------
 
 QMap<QString, QString> Scanner::getPhysicalInterfaces() {
     QMap<QString, QString> ifacesAddresses{};
@@ -519,7 +529,6 @@ bool Scanner::networksStringIsCorrect(QString networksString) {
 
     return true;
 }
-
 
 // -------------------------------------------------------------------------------------
 
