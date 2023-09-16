@@ -72,6 +72,8 @@ private slots:
     void selectPortSpinBox_valueChanged();
     void manualPorts_change();
 
+    void progressBar_update(QString host, bool isActive);
+
 private:
     Ui::MainWindow *ui;
 
