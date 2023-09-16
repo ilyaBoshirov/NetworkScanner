@@ -32,6 +32,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     ui->threadNumberBox->setMinimum(1);
 
+//    connect(&this->scanner, SIGNAL(hostIsComplete(QString,bool)), this, SLOT(progressBar_update(QString,bool)));
+
     // port selection page  ----------------------------------------------------------------------
     ui->firstPortValue->setMinimum(Scanner::firstPort);
     ui->firstPortValue->setMaximum(Scanner::lastPort);
@@ -96,6 +98,8 @@ void MainWindow::openPage(const PageTypes &pageType) {
     }
     else if(pageType == PageTypes::HostDetectingPage) {
         this->startActiveHostDetection();
+//        std::thread worker(&MainWindow::waitingHostDetection, this);
+//        worker.detach();
     }
     else if(pageType == PageTypes::PortsSelectingPage) {
         this->drowPortsSelectingPage();
@@ -106,6 +110,7 @@ void MainWindow::openPage(const PageTypes &pageType) {
     else if(pageType == PageTypes::ExitPage) {
 
     }
+
 }
 
 void MainWindow::drowWelcomePage() {
@@ -152,13 +157,11 @@ void MainWindow::drowExitPage() {
     ui->prevButton->setDisabled(false);
 }
 
-
 void MainWindow::setNetworkInput() {
     ui->currentNetworksLabel->setText(Scanner::currentNetworksToQSting());
     ui->manualNetworkInput->setDisabled(!ui->manualRadioButton->isChecked());
     ui->fileNetworkInput->setDisabled(!ui->fileRadioButton->isChecked());
     ui->fileDialogOpenButton->setDisabled(!ui->fileRadioButton->isChecked());
-
 }
 
 void MainWindow::startActiveHostDetection() {
@@ -185,11 +188,10 @@ void MainWindow::startActiveHostDetection() {
     }
 
     // waiting for thread
-    this->waitingHostDetection();
-
-    // end
-    ui->nextButton->setDisabled(false);
-
+    std::thread worker(&MainWindow::waitingHostDetection, this);
+    worker.detach();
+//    worker.join();
+//    this->waitingHostDetection();
 }
 
 void MainWindow::waitingHostDetection() {
@@ -213,6 +215,8 @@ void MainWindow::waitingHostDetection() {
 
     ui->hostDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
 
+    // end
+    ui->nextButton->setDisabled(false);
 }
 
 bool MainWindow::portsStrIsCorrect() {
@@ -426,4 +430,19 @@ void MainWindow::manualPorts_change() {
     } else {
         ui->nextButton->setDisabled(true);
     }
+}
+
+void MainWindow::progressBar_update(QString host, bool isActive) {
+    qDebug() << host << "is active --- signal";
+
+//    if (isActive) {
+//        //        ui->activeHostBrowser->append(host + " is ACTIVE;\n");
+//    }
+//    ui->hostDetectionProgressBar->setValue(ui->hostDetectionProgressBar->value() + 1);
+
+//    // end
+
+//    if (ui->hostDetectionProgressBar->value() == ui->hostDetectionProgressBar->maximum()) {
+//        ui->nextButton->setDisabled(false);
+//    }
 }
