@@ -10,13 +10,17 @@ CONFIG += c++17
 
 SOURCES += \
     dbmanager.cpp \
+    hostdetector.cpp \
     main.cpp \
     mainwindow.cpp \
+    portscanner.cpp \
     scanner.cpp
 
 HEADERS += \
     dbmanager.h \
+    hostdetector.h \
     mainwindow.h \
+    portscanner.h \
     scanner.h
 
 FORMS += \
