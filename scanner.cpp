@@ -6,32 +6,9 @@
 #include <QTextStream>
 #include <QRegularExpression>
 
-#include <thread>
-
-
-// TODO
-
-void Scanner::detectActiveHostsARP(size_t threadNumber) {
-
-}
-
-QString Scanner::getServiceName(QString ipAddress, quint32 port) {
-    QTcpSocket socket;
-
-    socket.connectToHost("172.16.16.192", 22);
-    if(socket.waitForConnected(scanTimeout)){
-        qDebug() << socket.peerName();
-        qDebug() << QString::fromUtf8(socket.read(1024));
-    }
-    socket.disconnectFromHost();
-
-    return "TODO";
-}
-
-// COMPLETE
 
 Scanner::Scanner() {
-//    this->scannedNetworks = getCurrentNetworks();
+    this->scannedNetworks = getCurrentNetworks();
 }
 
 Scanner::Scanner(const QList<QString>& scannedNetworks) {
@@ -47,20 +24,81 @@ QList<QString> Scanner::getActiveHosts() {
     return this->activeHosts;
 }
 
-QList<QString> Scanner::getHostsPortsStatus() {
-    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
-    return this->hostsPortsStatus;
-}
-
-QMap<QString,QString> Scanner::getHostsOS() {
-    return this->hostsOS;
-}
-
 QMap<QPair<QString,quint32>, bool> Scanner::getHostsPorts() {
     return this->hostsPorts;
 }
 
-void Scanner::setNetworksFromFile(const QString& filePath) {
+void Scanner::initByCurrentNetworks() {
+    this->scannedNetworks = getCurrentNetworks();
+}
+
+void Scanner::initByFile(const QString& filePath) {
+    this->scannedNetworks = get
+}
+
+void Scanner::initByNetworksString(QString& networksString) {
+    auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
+
+    this->scannedNetworks.clear();
+    foreach (auto network, networks) {
+        if (!networkIsCorrect(network)) {
+            this->scannedNetworks.append(network);
+        }
+    }
+}
+
+QList<QString> Scanner::getNetworksHosts() {
+    QList<QString> networksHosts{};
+
+    foreach (auto network, this->scannedNetworks) {
+        networksHosts += getNetworkIPs(network);
+    }
+
+    return networksHosts;
+}
+
+size_t Scanner::getAllHostNumber() {
+    size_t allHostNumber{0};
+
+    if (this->scannedNetworks.size() == 0) {
+        return allHostNumber;
+    }
+
+    foreach (auto net, this->getScannedNetworks()) {
+        auto mask = net.split("/")[1].toInt();
+
+        allHostNumber += size_t(1 << (32 - mask)) - 2;
+    }
+    return allHostNumber;
+}
+
+// static methods -------------------------------------------------------------------------------------
+
+QList<QString> Scanner::getNetworksHosts(QList<QString> networks) {
+    QList<QString> networksHosts{};
+
+    foreach (auto network, networks) {
+        networksHosts += getNetworkIPs(network);
+    }
+
+    return networksHosts;
+}
+
+
+QList<QString> Scanner::getNetworksFromString(QString& networksString) {
+    auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
+
+    QList<QString> resNet{};
+    foreach (auto network, networks) {
+        if (!networkIsCorrect(network)) {
+            resNet.append(network);
+        }
+    }
+
+    return resNet;
+}
+
+QList<QString> Scanner::getNetworksFromFile(const QString& filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "Error open file" << filePath;
@@ -86,209 +124,9 @@ void Scanner::setNetworksFromFile(const QString& filePath) {
 
     }
     qDebug() << networks;
-    this->scannedNetworks = networks;
+
+    return networks;
 }
-
-void Scanner::initByCurrentNetworks() {
-    this->scannedNetworks = getCurrentNetworks();
-}
-
-void Scanner::initByNetworksString(QString& networksString) {
-    auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
-
-    this->scannedNetworks.clear();
-    foreach (auto network, networks) {
-        if (!networkIsCorrect(network)) {
-            this->scannedNetworks.append(network);
-        }
-    }
-}
-
-QList<QString> Scanner::getNetworksHosts() {
-    QList<QString> networksHosts{};
-
-    foreach (auto network, this->scannedNetworks) {
-        networksHosts += getNetworkIPs(network);
-    }
-
-    return networksHosts;
-}
-
-void Scanner::incCompletedHostNumber() {
-    std::lock_guard<std::mutex> lg(this->incCompletedHostNumberMutex);
-    ++this->completedHostNumber;
-}
-
-size_t Scanner::getCompletedHostNumber() {
-    std::lock_guard<std::mutex> lg(this->incCompletedHostNumberMutex);
-    return this->completedHostNumber;
-}
-
-void Scanner::detectActiveHostsICMP(size_t threadNumber) {
-    this->scannedHosts = this->getNetworksHosts();
-
-    if (threadNumber == 0 || threadNumber == 1) {
-        std::thread worker(&Scanner::threadPingCheckHosts, this);
-        worker.detach();
-    }
-    else {
-        for (auto i{ 0 }; i < threadNumber; ++i) {
-            std::thread worker(&Scanner::threadPingCheckHosts, this);
-            worker.detach();
-        }
-    }
-}
-
-void Scanner::threadPingCheckHosts() {
-    QString nParameter = "-n";
-    QString pingCount = "1"; //(int)
-    QString wParameter = "-w";
-    QString pingWaitTime = "10"; //(ms)
-
-    while (true) {
-        auto host = this->getNextHost();
-        if (host == "") {
-            break;
-        }
-
-        auto exitCode = QProcess::execute("ping", QStringList() << host <<nParameter<<pingCount<<wParameter<<pingWaitTime);
-
-        if (exitCode == 0) {
-            this->addActiveHost(host);
-//            emit this->hostIsComplete(host, true);
-        } else {
-//            emit this->hostIsComplete(host, false);
-        }
-
-        this->incCompletedHostNumber();
-    }
-}
-
-void Scanner::detectActiveHostsSYN(size_t threadNumber) {
-    this->scannedHosts = this->getNetworksHosts();
-
-    if (threadNumber == 0 || threadNumber == 1) {
-        std::thread worker(&Scanner::threadSynCheckHosts, this);
-        worker.detach();
-    }
-    else {
-        for (auto i{ 0 }; i < threadNumber; ++i) {
-            std::thread worker(&Scanner::threadSynCheckHosts, this);
-            worker.detach();
-        }
-    }
-}
-
-void Scanner::threadSynCheckHosts() {
-    QTcpSocket socket;
-
-    bool hostIsActive;
-    while (true) {
-        auto host = this->getNextHost();
-        if (host == "") {
-            break;
-        }
-        hostIsActive = false;
-
-        foreach(const auto& port, this->defaultSYNPorts) {
-            socket.connectToHost(host, port);
-            if(socket.waitForConnected(scanTimeout)){
-                socket.disconnectFromHost();
-                this->addActiveHost(host);
-                hostIsActive = true;
-
-                break;
-            }
-            socket.disconnectFromHost();
-        }
-
-        emit this->hostIsComplete(host, hostIsActive);
-
-        this->incCompletedHostNumber();
-    }
-}
-
-QString Scanner::getNextHost() {
-    std::lock_guard<std::mutex> lg(this->getNextHostMutex);
-    return (this-> nextScannedHostIndex < this->scannedHosts.size() ? this->scannedHosts.at(this-> nextScannedHostIndex++) : "");
-}
-
-void Scanner::addActiveHost(QString host) {
-    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
-    this->activeHosts.append(host);
-}
-
-bool threadArpCheckHost();
-
-void Scanner::detectActiveHostsOpenPorts(QList<quint32> ports, size_t threadNumber) {
-    this->nextScannedHostIndex = 0;
-    this->completedHostNumber = 0;
-
-    if (threadNumber == 0 || threadNumber == 1) {
-        std::thread worker(&Scanner::threadDetectHostOpenPorts, this, std::ref(ports));
-        worker.detach();
-    }
-    else {
-        for (auto i{ 0 }; i < threadNumber; ++i) {
-            std::thread worker(&Scanner::threadDetectHostOpenPorts, this, std::ref(ports));
-            worker.detach();
-        }
-    }
-}
-
-QString Scanner::getNextActiveHost() {
-    std::lock_guard<std::mutex> lg(this->getNextHostMutex);
-    return (this-> nextScannedHostIndex < this->activeHosts.size() ? this->activeHosts.at(this-> nextScannedHostIndex++) : "");
-}
-
-void Scanner::addHostPortStatus(QString host, quint32 port, bool status) {
-    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
-    this->hostsPorts[qMakePair(host, port)] = true;
-
-    QString statusStr("Host %1 port %2 is %3");
-    this->hostsPortsStatus.append(statusStr.arg(host).arg(port).arg(status ? "OPEN" : "CLOSE/FILTERED"));
-}
-
-void Scanner::threadDetectHostOpenPorts(QList<quint32>& ports) {
-    QList<quint32> openPorts{};
-
-    QTcpSocket socket;
-
-    while (true) {
-        auto host = this->getNextActiveHost();
-        if (host == "") {
-            break;
-        }
-
-        foreach(const auto& port, ports) {
-            socket.connectToHost(host, port);
-            if(socket.waitForConnected(scanTimeout)){
-                socket.disconnectFromHost();
-                this->addHostPortStatus(host, port, true);
-            }
-            socket.disconnectFromHost();
-        }
-
-        this->incCompletedHostNumber();
-    }
-}
-
-size_t Scanner::getAllHostNumber() {
-    size_t allHostNumber{0};
-
-    if (this->scannedNetworks.size() == 0) {
-        return allHostNumber;
-    }
-
-    foreach (auto net, this->getScannedNetworks()) {
-        auto mask = net.split("/")[1].toInt();
-
-        allHostNumber += size_t(1 << (32 - mask)) - 2;
-    }
-    return allHostNumber;
-}
-
-// static methods -------------------------------------------------------------------------------------
 
 QMap<QString, QString> Scanner::getPhysicalInterfaces() {
     QMap<QString, QString> ifacesAddresses{};
@@ -529,24 +367,3 @@ bool Scanner::networksStringIsCorrect(QString networksString) {
 
     return true;
 }
-
-// -------------------------------------------------------------------------------------
-
-
-//QString getServiceName(QHostAddress ipAddress, quint32 port) {
-//    QTcpSocket socket;
-//    socket.connectToHost(ipAddress.toString(), port);
-//    if(!socket.waitForConnected(timeout)){
-//        return "PORT CLOSE";
-//    }
-//    socket.close();
-
-//    //    std::string serviceName = "NA";
-//    //    struct servent* serviceInfo;
-//    //    serviceInfo = getservbyport(htons(445),  NULL);
-//    //    if(serviceInfo != NULL)
-//    //        serviceName =  std::string(serviceInfo->s_name);
-
-
-//    return "";
-//}

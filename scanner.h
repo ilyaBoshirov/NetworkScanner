@@ -16,79 +16,44 @@ class Scanner : public QThread {
 
 private:
 
-    QList<QString> scannedNetworks{};
-    QList<QString> scannedHosts{};
-    QList<QString> activeHosts{};
-    QMap<QString,QString> hostsOS{};
-
-    QMap<QPair<QString,quint32>, bool> hostsPorts{};
-    QList<QString> hostsPortsStatus{};
-
-    size_t nextScannedHostIndex {0};
-    size_t completedHostNumber {0};
-
-    const QList<quint32> defaultSYNPorts = {22, 135, 139, 445};
-
-    std::mutex getNextHostMutex;  // mutex for reading state
-    std::mutex addActiveHostMutex;  // mutex for adding solution in structure
-    std::mutex incCompletedHostNumberMutex;  // mutex for adding true in vector when thread end working
+    QList<QString> scannedNetworks{};  // networks for detection
+    QList<QString> scannedHosts{};  // hosts for detection
+    QList<QString> activeHosts{};  // detected active hosts
 
 public:
-    static const quint32 lastPort {65535};
-    static const quint32 firstPort {1};
 
     Scanner();
     Scanner(const QList<QString>& scannedNetworks);
 
     QList<QString> getScannedNetworks();
     QList<QString> getActiveHosts();
-    QMap<QString,QString> getHostsOS();
+
     QMap<QPair<QString,quint32>, bool> getHostsPorts();
 
     void setNetworksFromFile(const QString& filePath);
-    void setNetworksFromQString(const QString& filePath);
     void initByCurrentNetworks();
+    void initByFile(const QString& filePath);
     void initByNetworksString(QString& networksString);
-
-    void detectActiveHostsICMP(size_t threadNumber);
-    void detectActiveHostsARP(size_t threadNumber);
-    void detectActiveHostsSYN(size_t threadNumber);
-
-    void addActiveHost(QString host);
-    QString getNextHost();
-
-    size_t getCompletedHostNumber();
-    void incCompletedHostNumber();
-    void threadPingCheckHosts();
-    void threadArpCheckHosts();
-    void threadSynCheckHosts();
-
+    QList<QString> getNetworksHosts();
     size_t getAllHostNumber();
 
-    void detectActiveHostsOpenPorts(QList<quint32> ports, size_t threadNumber);
-    void threadDetectHostOpenPorts(QList<quint32>& ports);
-    QString getNextActiveHost();
-    void addHostPortStatus(QString host, quint32 port, bool status);
-    QList<QString> getHostsPortsStatus();
+    virtual void run() const = 0;
 
-    QString getServiceName(QString ipAddress, quint32 port);
-    QList<QString> getNetworksHosts();
-
-    static QMap<QString, QString> getPhysicalInterfaces();
-    static QList<QString> getCurrentNetworks();
-    static QMap<QString, QString> getCurrentIPs();
-    static QString getNetwork(QHostAddress ip, QHostAddress netmask);
-    static QList<QString> getNetworkIPs(QString network);
-    static bool isPhysicalInterface(QNetworkInterface interface);
-    static quint32 ipToInteger(QString stringIP);
-    static QString integerToIp(quint32 integerIP);
-    static QString currentNetworksToQSting();
-    static bool networkIsCorrect(QString networkString);
-    static bool networksStringIsCorrect(QString networksString);
-
-signals:
-    void hostIsComplete(QString hostIP, bool isActive);
-    void portIsComplete(QString hostIP, quint32 port, bool isActive);
+    // static methods
+    static QList<QString> getNetworksHosts(QList<QString> networks);
+    static QList<QString> getNetworksFromString(QString& networksString);
+    static QList<QString> getNetworksFromFile(const QString& filePath);
+    static QMap<QString, QString> getPhysicalInterfaces();  // get all interfase physical
+    static QList<QString> getCurrentNetworks();    // PC networks
+    static QMap<QString, QString> getCurrentIPs();      // PC IP addresses
+    static QString getNetwork(QHostAddress ip, QHostAddress netmask);  // ip + mask = ip/mask
+    static QList<QString> getNetworkIPs(QString network);  // get all hosts ip of network
+    static bool isPhysicalInterface(QNetworkInterface interface);   // detect is interfase physical
+    static quint32 ipToInteger(QString stringIP);  // convert ip str to integer
+    static QString integerToIp(quint32 integerIP);  // convert to integer ip str
+    static QString currentNetworksToQSting();  // convert current networks to str
+    static bool networkIsCorrect(QString networkString);  // check is network correct
+    static bool networksStringIsCorrect(QString networksString);  // check array of networks for correctness
 };
 
 #endif // SCANNER_H
