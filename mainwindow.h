@@ -2,9 +2,11 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QVector>
 
 #include "dbmanager.h"
-#include "scanner.h"
+#include "portscanner.h"
+#include "hostdetector.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -26,12 +28,6 @@ enum NetworkInitializationTypes {
     Manual,
     File,
     CurrentNetwork
-};
-
-enum ScanningTypes {
-    Ping,
-    ARP,
-    SYN
 };
 
 class MainWindow : public QMainWindow {
@@ -72,7 +68,13 @@ private slots:
     void selectPortSpinBox_valueChanged();
     void manualPorts_change();
 
-    void progressBar_update(QString host, bool isActive);
+    // for host scanner
+    void hostDetectionIsComplete();
+    void threadCompleteHostsDetection();
+
+    // for port scanner
+    void portDetectionIsComplete();
+    void threadCompletePortsDetection();
 
 private:
     Ui::MainWindow *ui;
@@ -82,7 +84,9 @@ private:
     bool networksIsCorrect {false};
     qint32 scanningType{-1};
 
-    Scanner scanner{};
+    QVector<HostDetector> hostDetectorThreads{};
+    QVector<PortScanner> portScannersThreads{};
+
     DBManager dbManager{};
 };
 #endif // MAINWINDOW_H

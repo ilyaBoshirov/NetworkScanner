@@ -32,8 +32,6 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     ui->threadNumberBox->setMinimum(1);
 
-//    connect(&this->scanner, SIGNAL(hostIsComplete(QString,bool)), this, SLOT(progressBar_update(QString,bool)));
-
     // port selection page  ----------------------------------------------------------------------
     ui->firstPortValue->setMinimum(Scanner::firstPort);
     ui->firstPortValue->setMaximum(Scanner::lastPort);
@@ -169,29 +167,37 @@ void MainWindow::startActiveHostDetection() {
     ui->nextButton->setDisabled(true);
     ui->prevButton->setDisabled(false);
 
-    // write progress bar
+    QList<QString> networksForDetecion{};
+
+    if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
+        networksForDetecion = Scanner::getCurrentNetworks();
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::File) {
+        networksForDetecion = Scanner::getNetworksFromFile(ui->fileNetworkInput->text());
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
+        networksForDetecion = Scanner::getNetworksFromString(ui->manualNetworkInput->text());
+    }
+
+    // set progress bar
     ui->hostDetectionProgressBar->setMinimum(0);
     ui->hostDetectionProgressBar->setMaximum(this->scanner.getAllHostNumber());
 
     // start threading
-
     quint32 threadNumber = ui->threadNumberBox->value();
 
-    if (this->scanningType == ScanningTypes::Ping) {
-        this->scanner.detectActiveHostsICMP(threadNumber);
-    }
-    if (this->scanningType == ScanningTypes::ARP) {
-        this->scanner.detectActiveHostsARP(threadNumber);
-    }
-    if (this->scanningType == ScanningTypes::SYN) {
-        this->scanner.detectActiveHostsSYN(threadNumber);
+    for(auto i = 0; i < threadNumber; ++i) {
+        this->hostDetectorThreads[i] = HostDetector(networksForDetecion, this->scanningType);
+
     }
 
-    // waiting for thread
-    std::thread worker(&MainWindow::waitingHostDetection, this);
-    worker.detach();
-//    worker.join();
-//    this->waitingHostDetection();
+
+
+
+    // write progress bar
+    ui->hostDetectionProgressBar->setMinimum(0);
+    ui->hostDetectionProgressBar->setMaximum(this->scanner.getAllHostNumber());
+
 }
 
 void MainWindow::waitingHostDetection() {
@@ -365,9 +371,8 @@ void MainWindow::fileDialogOpenButton_clicked() {
                     );
 
     ui->fileNetworkInput->setText(fileName);
-    this->scanner.setNetworksFromFile(fileName);
 
-    if (this->scanner.getScannedNetworks().size() == 0) {
+    if (Scanner::getNetworksFromFile(fileName).size() == 0) {
         ui->nextButton->setDisabled(true);
     } else {
         ui->nextButton->setDisabled(false);
@@ -430,19 +435,4 @@ void MainWindow::manualPorts_change() {
     } else {
         ui->nextButton->setDisabled(true);
     }
-}
-
-void MainWindow::progressBar_update(QString host, bool isActive) {
-    qDebug() << host << "is active --- signal";
-
-//    if (isActive) {
-//        //        ui->activeHostBrowser->append(host + " is ACTIVE;\n");
-//    }
-//    ui->hostDetectionProgressBar->setValue(ui->hostDetectionProgressBar->value() + 1);
-
-//    // end
-
-//    if (ui->hostDetectionProgressBar->value() == ui->hostDetectionProgressBar->maximum()) {
-//        ui->nextButton->setDisabled(false);
-//    }
 }
