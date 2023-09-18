@@ -72,7 +72,7 @@
     <item row="4" column="0" colspan="5">
      <widget class="QStackedWidget" name="workSpace">
       <property name="currentIndex">
-       <number>4</number>
+       <number>6</number>
       </property>
       <widget class="QWidget" name="welcomePage">
        <layout class="QGridLayout" name="gridLayout_10">
@@ -554,7 +554,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
          </spacer>
         </item>
         <item alignment="Qt::AlignHCenter">
-         <widget class="QPushButton" name="pushButton_4">
+         <widget class="QPushButton" name="newScanButton">
           <property name="minimumSize">
            <size>
             <width>200</width>
@@ -573,7 +573,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
          </widget>
         </item>
         <item alignment="Qt::AlignHCenter|Qt::AlignVCenter">
-         <widget class="QPushButton" name="pushButton_2">
+         <widget class="QPushButton" name="saveToJsonButton">
           <property name="minimumSize">
            <size>
             <width>200</width>
@@ -587,12 +587,12 @@ li.checked::marker { content: &quot;\2612&quot;; }
            </size>
           </property>
           <property name="text">
-           <string>Save</string>
+           <string>Save to JSON file</string>
           </property>
          </widget>
         </item>
         <item alignment="Qt::AlignHCenter">
-         <widget class="QPushButton" name="pushButton_3">
+         <widget class="QPushButton" name="saveToDbButton">
           <property name="minimumSize">
            <size>
             <width>200</width>
@@ -606,12 +606,12 @@ li.checked::marker { content: &quot;\2612&quot;; }
            </size>
           </property>
           <property name="text">
-           <string>Save &amp; Exit</string>
+           <string>Save to database</string>
           </property>
          </widget>
         </item>
         <item alignment="Qt::AlignHCenter">
-         <widget class="QPushButton" name="pushButton_5">
+         <widget class="QPushButton" name="exitWithoutSaveButton">
           <property name="minimumSize">
            <size>
             <width>200</width>
