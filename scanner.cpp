@@ -9,10 +9,12 @@
 
 Scanner::Scanner() {
     this->scannedNetworks = getCurrentNetworks();
+    this->scannedHosts = getNetworksHosts(this->scannedNetworks);
 }
 
 Scanner::Scanner(const QList<QString>& scannedNetworks) {
     this->scannedNetworks = scannedNetworks;
+    this->scannedHosts = getNetworksHosts(scannedNetworks);
 }
 
 QList<QString> Scanner::getScannedNetworks() {
@@ -20,12 +22,11 @@ QList<QString> Scanner::getScannedNetworks() {
 }
 
 QList<QString> Scanner::getActiveHosts() {
-    std::lock_guard<std::mutex> lg(this->addActiveHostMutex);
     return this->activeHosts;
 }
 
-QMap<QPair<QString,quint32>, bool> Scanner::getHostsPorts() {
-    return this->hostsPorts;
+void Scanner::addActiveHost(QString hostIp) {
+    this->activeHosts.append(hostIp);
 }
 
 void Scanner::initByCurrentNetworks() {
@@ -33,7 +34,7 @@ void Scanner::initByCurrentNetworks() {
 }
 
 void Scanner::initByFile(const QString& filePath) {
-    this->scannedNetworks = get
+    this->scannedNetworks = getNetworksFromFile(filePath);
 }
 
 void Scanner::initByNetworksString(QString& networksString) {
@@ -45,16 +46,6 @@ void Scanner::initByNetworksString(QString& networksString) {
             this->scannedNetworks.append(network);
         }
     }
-}
-
-QList<QString> Scanner::getNetworksHosts() {
-    QList<QString> networksHosts{};
-
-    foreach (auto network, this->scannedNetworks) {
-        networksHosts += getNetworkIPs(network);
-    }
-
-    return networksHosts;
 }
 
 size_t Scanner::getAllHostNumber() {
@@ -84,7 +75,6 @@ QList<QString> Scanner::getNetworksHosts(QList<QString> networks) {
     return networksHosts;
 }
 
-
 QList<QString> Scanner::getNetworksFromString(QString& networksString) {
     auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
 
@@ -102,7 +92,7 @@ QList<QString> Scanner::getNetworksFromFile(const QString& filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) {
         qDebug() << "Error open file" << filePath;
-        return;
+        return QList<QString>{};
     }
 
     QList<QString> networks{};

@@ -3,20 +3,15 @@
 
 #include <QList>
 #include <QMap>
-#include <QThread>
 #include <QtNetwork/QNetworkInterface>  // QHostAddress
-
-#include <mutex>
-#include <thread>
 
 #define scanTimeout 10
 
-class Scanner : public QThread {
-    Q_OBJECT
-
-private:
+class Scanner {
 
     QList<QString> scannedNetworks{};  // networks for detection
+
+protected:
     QList<QString> scannedHosts{};  // hosts for detection
     QList<QString> activeHosts{};  // detected active hosts
 
@@ -28,16 +23,14 @@ public:
     QList<QString> getScannedNetworks();
     QList<QString> getActiveHosts();
 
-    QMap<QPair<QString,quint32>, bool> getHostsPorts();
+    void addActiveHost(QString hostIp);
 
-    void setNetworksFromFile(const QString& filePath);
     void initByCurrentNetworks();
     void initByFile(const QString& filePath);
     void initByNetworksString(QString& networksString);
-    QList<QString> getNetworksHosts();
     size_t getAllHostNumber();
 
-    virtual void run() const = 0;
+    virtual void run() = 0;
 
     // static methods
     static QList<QString> getNetworksHosts(QList<QString> networks);
