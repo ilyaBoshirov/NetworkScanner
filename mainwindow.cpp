@@ -33,11 +33,11 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->threadNumberBox->setMinimum(1);
 
     // port selection page  ----------------------------------------------------------------------
-    ui->firstPortValue->setMinimum(Scanner::firstPort);
-    ui->firstPortValue->setMaximum(Scanner::lastPort);
+    ui->firstPortValue->setMinimum(PortScanner::firstPort);
+    ui->firstPortValue->setMaximum(PortScanner::lastPort);
 
-    ui->lastPortValue->setMinimum(Scanner::firstPort);
-    ui->lastPortValue->setMaximum(Scanner::lastPort);
+    ui->lastPortValue->setMinimum(PortScanner::firstPort);
+    ui->lastPortValue->setMaximum(PortScanner::lastPort);
 
     connect(ui->manualPortRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
     connect(ui->rangePortRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
@@ -75,29 +75,14 @@ void MainWindow::openPage(const PageTypes &pageType) {
     else if(pageType == PageTypes::ScanningTypePage) {
 
         if (prevPage == PageTypes::NetworkSelectingPage) {
-            // init scanner
-            if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
-                QString netStr {ui->manualNetworkInput->text()};
-                this->scanner.initByNetworksString(netStr);
-            }
-
-            if (this->networkInitializationType == NetworkInitializationTypes::File) {
-                QString filePath {ui->fileNetworkInput->text()};
-                this->scanner.setNetworksFromFile(filePath);
-            }
-
-            if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
-                QString netStr {ui->manualNetworkInput->text()};
-                this->scanner.initByCurrentNetworks();
-            }
+            this->drowScanningTypePage();
+        } else {
+            this->openPage(PageTypes::NetworkSelectingPage);
         }
 
-        this->drowScanningTypePage();
     }
     else if(pageType == PageTypes::HostDetectingPage) {
         this->startActiveHostDetection();
-//        std::thread worker(&MainWindow::waitingHostDetection, this);
-//        worker.detach();
     }
     else if(pageType == PageTypes::PortsSelectingPage) {
         this->drowPortsSelectingPage();
@@ -162,67 +147,87 @@ void MainWindow::setNetworkInput() {
     ui->fileDialogOpenButton->setDisabled(!ui->fileRadioButton->isChecked());
 }
 
+QList<size_t> MainWindow::hostPerThread(QList<QString> hosts, size_t threadsNumber) {
+    size_t hostPerThr = hosts.size() / threadsNumber;
+    size_t extraHostsNumber = hosts.size() % threadsNumber;
+
+    QList<size_t> hostsNumbers(threadsNumber, hostPerThr);
+    for(auto i{0}; i < extraHostsNumber; ++i) {
+        hostsNumbers[i] += 1;
+    }
+
+    return hostsNumbers;
+}
+
 void MainWindow::startActiveHostDetection() {
     // buttons
     ui->nextButton->setDisabled(true);
     ui->prevButton->setDisabled(false);
 
-    QList<QString> networksForDetecion{};
+    QList<QString> hostsForDetecion{};
 
     if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
-        networksForDetecion = Scanner::getCurrentNetworks();
+        QString networksStr = ui->manualNetworkInput->text();
+        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getNetworksFromString(networksStr));
+
     }
     if (this->networkInitializationType == NetworkInitializationTypes::File) {
-        networksForDetecion = Scanner::getNetworksFromFile(ui->fileNetworkInput->text());
+        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getNetworksFromFile(ui->fileNetworkInput->text()));
     }
     if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
-        networksForDetecion = Scanner::getNetworksFromString(ui->manualNetworkInput->text());
+        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getCurrentNetworks());
     }
 
     // set progress bar
     ui->hostDetectionProgressBar->setMinimum(0);
-    ui->hostDetectionProgressBar->setMaximum(this->scanner.getAllHostNumber());
+    ui->hostDetectionProgressBar->setMaximum(hostsForDetecion.size());
+    ui->hostDetectionProgressBar->setValue(0);
 
     // start threading
     quint32 threadNumber = ui->threadNumberBox->value();
 
+    auto hostsForThreadsNumbers = hostPerThread(hostsForDetecion, threadNumber);
+
+    this->hostDetectorThreads.clear();
+
+    size_t hostCounter = 0;
     for(auto i = 0; i < threadNumber; ++i) {
-        this->hostDetectorThreads[i] = HostDetector(networksForDetecion, this->scanningType);
+        this->hostDetectorThreads.push_back(new HostDetector(hostsForDetecion.mid(hostCounter, hostsForThreadsNumbers[i]), ScanningTypes(this->scanningType)));
+        hostCounter += hostsForThreadsNumbers[i];
 
+        // add connections
+        connect(this->hostDetectorThreads[i], SIGNAL(hostIsComplete(QString, bool)), this,  SLOT(hostDetectionIsComplete(QString, bool)));
+        connect(this->hostDetectorThreads[i], SIGNAL(completeDetection(QList<QString>)), this, SLOT(threadCompleteHostsDetection(QList<QString>)));
+
+        this->hostDetectorThreads[i]->start();
     }
-
-
-
-
-    // write progress bar
-    ui->hostDetectionProgressBar->setMinimum(0);
-    ui->hostDetectionProgressBar->setMaximum(this->scanner.getAllHostNumber());
-
 }
 
-void MainWindow::waitingHostDetection() {
-//    if (this->threadNumber != 0) {
-    size_t allHostsNumber = this->scanner.getAllHostNumber();
-    size_t index{0};
+void MainWindow::hostDetectionIsComplete(QString hostIP, bool isActive) {
 
-    QList<QString> hosts{};
-    while (this->scanner.getCompletedHostNumber() < allHostsNumber) {
-        ui->hostDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+    if (isActive) {
+        ui->activeHostBrowser->append(hostIP + " is ACTIVE;\n");
+    }
+    auto currentPgrogressBarValue = ui->hostDetectionProgressBar->value();
+    ui->hostDetectionProgressBar->setValue(currentPgrogressBarValue + 1);
+}
 
-        hosts = this->scanner.getActiveHosts();
+void MainWindow::threadCompleteHostsDetection(QList<QString> activeHosts) {
 
-        auto hostsLength = hosts.size();
-        for (; index < hostsLength; ++index) {
-            ui->activeHostBrowser->append(hosts.at(index) + " is ACTIVE;\n");
-        }
+    activeHosts += activeHosts;
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    };
+    auto allIsComplete = true;
 
-    ui->hostDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+//    foreach (const auto& dThread, this->hostDetectorThreads) {
+//        if (!dThread.isFinished()) {
+//            allIsComplete = false;
+//            break;
+//        }
+//    }
 
-    // end
-    ui->nextButton->setDisabled(false);
+    if (allIsComplete) {
+        ui->nextButton->setDisabled(false);
+    }
 }
 
 bool MainWindow::portsStrIsCorrect() {
@@ -274,8 +279,8 @@ QList<quint32> MainWindow::getPortsForScan() {
     }
 
     if(ui->allPortsRadioButton->isChecked()) {
-        ports.resize(Scanner::lastPort);
-        std::iota(ports.begin(), ports.end(), Scanner::firstPort);
+        ports.resize(PortScanner::lastPort);
+        std::iota(ports.begin(), ports.end(), PortScanner::firstPort);
         return ports;
     }
 
@@ -283,49 +288,57 @@ QList<quint32> MainWindow::getPortsForScan() {
 }
 
 void MainWindow::startOpenPortsDetection() {
-    // buttons
-    ui->nextButton->setDisabled(true);
-    ui->prevButton->setDisabled(false);
+//    // buttons
+//    ui->nextButton->setDisabled(true);
+//    ui->prevButton->setDisabled(false);
 
-    auto portsForScan = this->getPortsForScan();
+//    auto portsForScan = this->getPortsForScan();
 
-    // write progress bar
-    ui->portsDetectionProgressBar->setMinimum(0);
-    ui->portsDetectionProgressBar->setMaximum(this->scanner.getActiveHosts().size());
+//    // write progress bar
+//    ui->portsDetectionProgressBar->setMinimum(0);
+//    ui->portsDetectionProgressBar->setMaximum(this->scanner.getActiveHosts().size());
 
-    // start threading
+//    // start threading
 
-    quint32 threadNumber = ui->threadNumberBox->value();
+//    quint32 threadNumber = ui->threadNumberBox->value();
 
-    this->scanner.detectActiveHostsOpenPorts(portsForScan, threadNumber);
+//    this->scanner.detectActiveHostsOpenPorts(portsForScan, threadNumber);
 
-    // waiting for thread
-    this->waitingOpenPortsDetection();
+//    // waiting for thread
+//    this->waitingOpenPortsDetection();
 
-    // end
-    ui->nextButton->setDisabled(false);
+//    // end
+//    ui->nextButton->setDisabled(false);
+
+}
+
+void MainWindow::portDetectionIsComplete(QString hostIP, quint32 port, PortStatus portStatus) {
+
+}
+
+void MainWindow::threadCompletePortsDetection() {
 
 }
 
 void MainWindow::waitingOpenPortsDetection() {
-    size_t allHostsNumber = this->scanner.getActiveHosts().size();
-    size_t index{0};
+//    size_t allHostsNumber = this->scanner.getActiveHosts().size();
+//    size_t index{0};
 
-    QList<QString> hostStatus{};
-    while (this->scanner.getCompletedHostNumber() < allHostsNumber) {
-        ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+//    QList<QString> hostStatus{};
+//    while (this->scanner.getCompletedHostNumber() < allHostsNumber) {
+//        ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
 
-        hostStatus = this->scanner.getHostsPortsStatus();
+//        hostStatus = this->scanner.getHostsPortsStatus();
 
-        auto hostsLength = hostStatus.size();
-        for (; index < hostsLength; ++index) {
-            ui->openPortsBrowser->append(hostStatus.at(index) + "\n");
-        }
+//        auto hostsLength = hostStatus.size();
+//        for (; index < hostsLength; ++index) {
+//            ui->openPortsBrowser->append(hostStatus.at(index) + "\n");
+//        }
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    };
+//        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+//    };
 
-    ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+//    ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
 }
 
 // slots realization
@@ -358,8 +371,6 @@ void MainWindow::radioButton_clicked() {
 
         ui->nextButton->setDisabled(false);
     }
-
-
 }
 
 void MainWindow::fileDialogOpenButton_clicked() {
