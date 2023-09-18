@@ -80,7 +80,7 @@ QList<QString> Scanner::getNetworksFromString(QString& networksString) {
 
     QList<QString> resNet{};
     foreach (auto network, networks) {
-        if (!networkIsCorrect(network)) {
+        if (networkIsCorrect(network)) {
             resNet.append(network);
         }
     }
