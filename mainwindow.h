@@ -41,9 +41,14 @@ public:
     void drowWelcomePage();
     void drowNetworkSelectingPage();
     void drowScanningTypePage();
+    void drowDetectingHostsPage();
     void drowPortsSelectingPage();
+    void drowScanningPortsPage();
     void drowExitPage();
     void setNetworkInput();
+    void setPortsInputs();
+    bool networkInputTypeIsCorrect();
+    bool portInputTypeIsCorrect();
 
     void startActiveHostDetection();
     void waitingHostDetection();
@@ -53,6 +58,9 @@ public:
     QList<quint32> getPortsForScan();
     void startOpenPortsDetection();
     void waitingOpenPortsDetection();
+
+    void stopScanning();
+    bool scanIsRunning();
 
     static QList<quint32> portsStrToQList(QString portsStr);
     static QList<size_t> tastsForThreads(size_t allTasksNumber, size_t threadsNumber);
