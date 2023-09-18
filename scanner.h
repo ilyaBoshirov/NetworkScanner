@@ -47,6 +47,7 @@ public:
     static QString currentNetworksToQSting();  // convert current networks to str
     static bool networkIsCorrect(QString networkString);  // check is network correct
     static bool networksStringIsCorrect(QString networksString);  // check array of networks for correctness
+    static bool ipInNetwork(QString ip, QString network);  // check if ip is in network
 };
 
 #endif // SCANNER_H
