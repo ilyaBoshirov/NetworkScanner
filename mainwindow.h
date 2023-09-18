@@ -55,7 +55,8 @@ public:
     void waitingOpenPortsDetection();
 
     static QList<quint32> portsStrToQList(QString portsStr);
-    static QList<size_t> hostPerThread(QList<QString> hosts, size_t threadsNumber);
+    static QList<size_t> tastsForThreads(size_t allTasksNumber, size_t threadsNumber);
+    static QList<QList<QPair<QString, QList<quint32>>>> splitHostsAndPortsForThread(QList<QString> activeHosts, QList<quint32> ports, size_t threadsNumber);
 
 private slots:
     void exitButton_clicked();
@@ -86,7 +87,7 @@ private:
     qint32 scanningType{-1};
 
     QVector<HostDetector*> hostDetectorThreads{};
-//    QVector<PortScanner> portScannersThreads{};
+    QVector<PortScanner*> portScannersThreads{};
     QList<QString> activeHosts{};
 
     DBManager dbManager{};

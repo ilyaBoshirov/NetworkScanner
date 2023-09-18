@@ -147,9 +147,9 @@ void MainWindow::setNetworkInput() {
     ui->fileDialogOpenButton->setDisabled(!ui->fileRadioButton->isChecked());
 }
 
-QList<size_t> MainWindow::hostPerThread(QList<QString> hosts, size_t threadsNumber) {
-    size_t hostPerThr = hosts.size() / threadsNumber;
-    size_t extraHostsNumber = hosts.size() % threadsNumber;
+QList<size_t> MainWindow::tastsForThreads(size_t allTasksNumber, size_t threadsNumber) {
+    size_t hostPerThr = allTasksNumber / threadsNumber;
+    size_t extraHostsNumber = allTasksNumber % threadsNumber;
 
     QList<size_t> hostsNumbers(threadsNumber, hostPerThr);
     for(auto i{0}; i < extraHostsNumber; ++i) {
@@ -186,12 +186,15 @@ void MainWindow::startActiveHostDetection() {
     // start threading
     quint32 threadNumber = ui->threadNumberBox->value();
 
-    auto hostsForThreadsNumbers = hostPerThread(hostsForDetecion, threadNumber);
+    auto hostsForThreadsNumbers = MainWindow::tastsForThreads(hostsForDetecion.size(), threadNumber);
 
     this->hostDetectorThreads.clear();
 
     size_t hostCounter = 0;
     for(auto i = 0; i < threadNumber; ++i) {
+        if (hostsForThreadsNumbers[i] == 0) {
+            break;
+        }
         this->hostDetectorThreads.push_back(new HostDetector(hostsForDetecion.mid(hostCounter, hostsForThreadsNumbers[i]), ScanningTypes(this->scanningType)));
         hostCounter += hostsForThreadsNumbers[i];
 
@@ -204,7 +207,6 @@ void MainWindow::startActiveHostDetection() {
 }
 
 void MainWindow::hostDetectionIsComplete(QString hostIP, bool isActive) {
-
     if (isActive) {
         ui->activeHostBrowser->append(hostIP + " is ACTIVE;\n");
     }
@@ -213,17 +215,16 @@ void MainWindow::hostDetectionIsComplete(QString hostIP, bool isActive) {
 }
 
 void MainWindow::threadCompleteHostsDetection(QList<QString> activeHosts) {
-
-    activeHosts += activeHosts;
+    this->activeHosts += activeHosts;
 
     auto allIsComplete = true;
 
-//    foreach (const auto& dThread, this->hostDetectorThreads) {
-//        if (!dThread.isFinished()) {
-//            allIsComplete = false;
-//            break;
-//        }
-//    }
+    foreach(auto thread, this->hostDetectorThreads) {
+        if (!thread->isFinished()) {
+            allIsComplete = false;
+            break;
+        }
+    }
 
     if (allIsComplete) {
         ui->nextButton->setDisabled(false);
@@ -287,58 +288,98 @@ QList<quint32> MainWindow::getPortsForScan() {
     return QList<quint32>{};
 }
 
+QList<QList<QPair<QString, QList<quint32>>>> MainWindow::splitHostsAndPortsForThread(QList<QString> activeHosts, QList<quint32> ports, size_t threadsNumber) {
+    auto activeHostsSize = activeHosts.size();
+    auto portsSize = ports.size();
+
+    // number of tasks for threads
+    QList<size_t> threadsConnections = MainWindow::tastsForThreads(activeHostsSize * portsSize, threadsNumber);
+
+    QList<QList<QPair<QString, QList<quint32>>>> tasksForAllThreads{};
+    QList<QPair<QString, QList<quint32>>> treadTasks{};
+
+    QList<quint32> tempPorts{};
+    size_t threadConnectionsNumber{0};
+    size_t threadIndex{0};
+
+    for(auto i{0}; i < activeHostsSize; ++i) {
+        for(auto j{0}; j < portsSize; ++j) {
+            if (threadConnectionsNumber == threadsConnections[threadIndex]) {
+                treadTasks.append(qMakePair(activeHosts[i], tempPorts));
+                tasksForAllThreads.append(treadTasks);
+                treadTasks.clear();
+
+                tempPorts.clear();
+                ++threadIndex;
+                threadConnectionsNumber = 0;
+            }
+            tempPorts.append(ports[j]);
+            threadConnectionsNumber += 1;
+        }
+
+        treadTasks.append(qMakePair(activeHosts[i], tempPorts));
+        tempPorts.clear();
+    }
+
+    tasksForAllThreads.append(treadTasks);
+
+    return tasksForAllThreads;
+}
+
 void MainWindow::startOpenPortsDetection() {
-//    // buttons
-//    ui->nextButton->setDisabled(true);
-//    ui->prevButton->setDisabled(false);
+    // buttons
+    ui->nextButton->setDisabled(true);
+    ui->prevButton->setDisabled(false);
 
-//    auto portsForScan = this->getPortsForScan();
+    auto portsForScan = this->getPortsForScan();
 
-//    // write progress bar
-//    ui->portsDetectionProgressBar->setMinimum(0);
-//    ui->portsDetectionProgressBar->setMaximum(this->scanner.getActiveHosts().size());
+    // write progress bar
+    ui->portsDetectionProgressBar->setMinimum(0);
+    ui->portsDetectionProgressBar->setMaximum(this->activeHosts.size() * portsForScan.size());
 
-//    // start threading
+    // start threading
 
-//    quint32 threadNumber = ui->threadNumberBox->value();
+    quint32 threadNumber = ui->threadNumberBox->value();  // todo add thread number to page
 
-//    this->scanner.detectActiveHostsOpenPorts(portsForScan, threadNumber);
+    auto targetsForThread = MainWindow::splitHostsAndPortsForThread(this->activeHosts, portsForScan, threadNumber);
 
-//    // waiting for thread
-//    this->waitingOpenPortsDetection();
+    this->portScannersThreads.clear();
 
-//    // end
-//    ui->nextButton->setDisabled(false);
+    for(auto i{0}; i < threadNumber; ++i) {
+        this->portScannersThreads.push_back(new PortScanner(targetsForThread[i]));
+
+        // add connections
+        connect(this->portScannersThreads[i], SIGNAL(portIsComplete(QString, quint32, PortStatus)), this,  SLOT(portDetectionIsComplete(QString, quint32, PortStatus)));
+        connect(this->portScannersThreads[i], SIGNAL(portScanningComplete()), this, SLOT(threadCompletePortsDetection()));
+
+        this->portScannersThreads[i]->start();
+    }
+    // end
+    ui->nextButton->setDisabled(false);
 
 }
 
 void MainWindow::portDetectionIsComplete(QString hostIP, quint32 port, PortStatus portStatus) {
-
+    if (portStatus == PortStatus::OPEN) {
+        ui->openPortsBrowser->append(hostIP + QString(":%1").arg(port) +  + " --- OPEN;\n");
+    }
+    auto currentPgrogressBarValue = ui->portsDetectionProgressBar->value();
+    ui->portsDetectionProgressBar->setValue(currentPgrogressBarValue + 1);
 }
 
 void MainWindow::threadCompletePortsDetection() {
+    auto allIsComplete = true;
 
-}
+    foreach(auto thread, this->portScannersThreads) {
+        if (!thread->isFinished()) {
+            allIsComplete = false;
+            break;
+        }
+    }
 
-void MainWindow::waitingOpenPortsDetection() {
-//    size_t allHostsNumber = this->scanner.getActiveHosts().size();
-//    size_t index{0};
-
-//    QList<QString> hostStatus{};
-//    while (this->scanner.getCompletedHostNumber() < allHostsNumber) {
-//        ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
-
-//        hostStatus = this->scanner.getHostsPortsStatus();
-
-//        auto hostsLength = hostStatus.size();
-//        for (; index < hostsLength; ++index) {
-//            ui->openPortsBrowser->append(hostStatus.at(index) + "\n");
-//        }
-
-//        std::this_thread::sleep_for(std::chrono::milliseconds(50));
-//    };
-
-//    ui->portsDetectionProgressBar->setValue(this->scanner.getCompletedHostNumber());
+    if (allIsComplete) {
+        ui->nextButton->setDisabled(false);
+    }
 }
 
 // slots realization
