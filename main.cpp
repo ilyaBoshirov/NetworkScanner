@@ -1,12 +1,10 @@
 #include "mainwindow.h"
 
 #include <QApplication>
-#include <numeric>
+#include <QList>
 
 
 int main(int argc, char *argv[]) {
-
-
     QApplication a(argc, argv);
 
        MainWindow w;
