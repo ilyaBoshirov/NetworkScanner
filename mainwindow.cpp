@@ -4,6 +4,7 @@
 #include <QFileDialog>
 #include <thread>
 #include <QRegularExpression>
+#include <QMessageBox>
 
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
@@ -44,8 +45,9 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->allPortsRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
 
     connect(ui->firstPortValue, &QSpinBox::valueChanged, this, &MainWindow::selectPortSpinBox_valueChanged);
+    connect(ui->lastPortValue, &QSpinBox::valueChanged, this, &MainWindow::selectPortSpinBox_valueChanged);
 
-    connect(ui->manulPortLineEdit, &QLineEdit::textChanged, this, &MainWindow::manualPorts_change);
+    connect(ui->manualPortLineEdit, &QLineEdit::textChanged, this, &MainWindow::manualPorts_change);
 
     // make welcome page first --------------------------------------------------------------------
 
@@ -60,7 +62,6 @@ MainWindow::~MainWindow() {
 
 void MainWindow::openPage(const PageTypes &pageType) {
     auto prevPage = PageTypes(ui->workSpace->currentIndex());
-
     ui->workSpace->setCurrentIndex(pageType);
 
     this->currentWindow = pageType;
@@ -68,27 +69,34 @@ void MainWindow::openPage(const PageTypes &pageType) {
     // page items controll
     if (pageType == PageTypes::WelcomePage) {
         this->drowWelcomePage();
+        return;
     }
     else if(pageType == PageTypes::NetworkSelectingPage) {
         this->drowNetworkSelectingPage();
+        return;
     }
     else if(pageType == PageTypes::ScanningTypePage) {
-
-        if (prevPage == PageTypes::NetworkSelectingPage) {
-            this->drowScanningTypePage();
-        } else {
-            this->openPage(PageTypes::NetworkSelectingPage);
-        }
-
+        this->drowScanningTypePage();
+        return;
     }
     else if(pageType == PageTypes::HostDetectingPage) {
+        if (prevPage == PageTypes::PortsSelectingPage) {
+            this->drowDetectingHostsPage();
+            return;
+        }
         this->startActiveHostDetection();
+        return;
     }
     else if(pageType == PageTypes::PortsSelectingPage) {
         this->drowPortsSelectingPage();
     }
     else if(pageType == PageTypes::PortsDetectingPage) {
+        if (prevPage == PageTypes::ExitPage) {
+            this->drowScanningPortsPage();
+            return;
+        }
         this->startOpenPortsDetection();
+        return;
     }
     else if(pageType == PageTypes::ExitPage) {
 
@@ -106,12 +114,22 @@ void MainWindow::drowNetworkSelectingPage() {
     this->setNetworkInput();
 
     // navigation buttons
-    ui->nextButton->setDisabled(!this->networksIsCorrect);
+    ui->nextButton->setDisabled(!this->networkInputTypeIsCorrect());
     ui->prevButton->setDisabled(false);
 }
 
 void MainWindow::drowScanningTypePage() {
     ui->nextButton->setDisabled(this->scanningType == -1 ? true : false);
+    ui->prevButton->setDisabled(false);
+}
+
+void MainWindow::drowDetectingHostsPage() {
+    ui->nextButton->setDisabled(false);
+    ui->prevButton->setDisabled(false);
+}
+
+void MainWindow::drowScanningPortsPage() {
+    ui->nextButton->setDisabled(false);
     ui->prevButton->setDisabled(false);
 }
 
@@ -123,15 +141,18 @@ bool MainWindow::portsIsCheck() {
         );
 }
 
-void MainWindow::drowPortsSelectingPage() {
-    // set inputs (current networks)
-    ui->manulPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
-
+void MainWindow::setPortsInputs() {
+    ui->manualPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
     ui->firstPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
     ui->lastPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+}
+
+void MainWindow::drowPortsSelectingPage() {
+    // set inputs (current networks)
+    this->setPortsInputs();
 
     // navigation buttons
-    ui->nextButton->setDisabled(!this->portsIsCheck());
+    ui->nextButton->setDisabled(!this->portInputTypeIsCorrect());
     ui->prevButton->setDisabled(false);
 }
 
@@ -183,6 +204,9 @@ void MainWindow::startActiveHostDetection() {
     ui->hostDetectionProgressBar->setMaximum(hostsForDetecion.size());
     ui->hostDetectionProgressBar->setValue(0);
 
+    // set text browser
+    ui->activeHostBrowser->clear();
+
     // start threading
     quint32 threadNumber = ui->threadNumberBox->value();
 
@@ -232,7 +256,7 @@ void MainWindow::threadCompleteHostsDetection(QList<QString> activeHosts) {
 }
 
 bool MainWindow::portsStrIsCorrect() {
-    auto ports = ui->manulPortLineEdit->text().split(QRegularExpression("[,;\r\n\t ]+"));
+    auto ports = ui->manualPortLineEdit->text().split(QRegularExpression("[,;\r\n\t ]+"));
 
     QRegularExpression re("^(\\d{1,5})$");
     QRegularExpressionMatch match;
@@ -267,7 +291,7 @@ QList<quint32> MainWindow::portsStrToQList(QString portsStr) {
 QList<quint32> MainWindow::getPortsForScan() {
     QList<quint32> ports{};
     if(ui->manualPortRadioButton->isChecked()) {
-        return portsStrToQList(ui->manulPortLineEdit->text());
+        return portsStrToQList(ui->manualPortLineEdit->text());
     }
 
     if(ui->rangePortRadioButton->isChecked()) {
@@ -335,7 +359,11 @@ void MainWindow::startOpenPortsDetection() {
 
     // write progress bar
     ui->portsDetectionProgressBar->setMinimum(0);
+    ui->portsDetectionProgressBar->setValue(0);
     ui->portsDetectionProgressBar->setMaximum(this->activeHosts.size() * portsForScan.size());
+
+    // text browser
+    ui->openPortsBrowser->clear();
 
     // start threading
 
@@ -356,7 +384,6 @@ void MainWindow::startOpenPortsDetection() {
     }
     // end
     ui->nextButton->setDisabled(false);
-
 }
 
 void MainWindow::portDetectionIsComplete(QString hostIP, quint32 port, PortStatus portStatus) {
@@ -382,10 +409,100 @@ void MainWindow::threadCompletePortsDetection() {
     }
 }
 
+bool MainWindow::networkInputTypeIsCorrect() {
+    if(ui->manualRadioButton->isChecked()) {
+        QString str = ui->manualNetworkInput->text();
+        qDebug() << Scanner::getNetworksFromString(str).size();
+        if (Scanner::getNetworksFromString(str).size() > 0 && str.length() > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    if(ui->fileRadioButton->isChecked()) {
+        if (Scanner::getNetworksFromFile(ui->fileNetworkInput->text()).size() > 0) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    if(ui->currentNetRadioButton->isChecked()) {
+        return true;
+    }
+
+    return false;
+}
+
+bool MainWindow::portInputTypeIsCorrect() {
+    if(ui->manualPortRadioButton->isChecked()) {
+        if (this->portsStrIsCorrect()) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    if(ui->rangePortRadioButton->isChecked()) {
+        if (ui->lastPortValue->value() < ui->firstPortValue->value()){
+            return false;
+        } else {
+            return true;
+        }
+    }
+
+    if(ui->allPortsRadioButton->isChecked()) {
+        return true;
+    }
+
+    return false;
+}
+
+void MainWindow::stopScanning() {
+    size_t threadsNumber = (this->currentWindow == PageTypes::HostDetectingPage) ? this->hostDetectorThreads.size() : this->portScannersThreads.size();
+    for (auto i{0}; i < threadsNumber; ++i) {
+        if (this->currentWindow == PageTypes::HostDetectingPage) {
+            this->hostDetectorThreads[i]->quit();
+            continue;
+        }
+        this->portScannersThreads[i]->quit();
+    }
+}
+
+bool MainWindow::scanIsRunning() {
+
+    bool scanIsRunnig = false;
+    size_t threadsNumber = (this->currentWindow == PageTypes::HostDetectingPage) ? this->hostDetectorThreads.size() : this->portScannersThreads.size();
+
+    if (this->currentWindow == PageTypes::HostDetectingPage) {
+        for (auto i{0}; i < threadsNumber; ++i) {
+            scanIsRunnig = scanIsRunnig || this->hostDetectorThreads[i]->isRunning();
+        }
+    } else {
+        for (auto i{0}; i < threadsNumber; ++i) {
+            scanIsRunnig = scanIsRunnig || this->portScannersThreads[i]->isRunning();
+        }
+    }
+
+    return scanIsRunnig;
+}
+
 // slots realization
 
 void MainWindow::exitButton_clicked(){
-    qDebug() << "ILYA click exit";
+    QMessageBox msgBox;
+    msgBox.setText("Exit program");
+    msgBox.setInformativeText("Are you sure you want to exit the programm?");
+    msgBox.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
+    int ret = msgBox.exec();
+
+    if (ret == QMessageBox::No) {
+        return;
+    }
+    if (ret == QMessageBox::Yes) {
+        QApplication::exit(2);
+    }
 }
 
 void MainWindow::nextButton_clicked() {
@@ -393,6 +510,22 @@ void MainWindow::nextButton_clicked() {
 }
 
 void MainWindow::prevButton_clicked() {
+
+    if ((this->currentWindow == PageTypes::HostDetectingPage || this->currentWindow == PageTypes::PortsDetectingPage) && this->scanIsRunning()) {
+        QMessageBox msgBox;
+        msgBox.setText("Exit scanning");
+        msgBox.setInformativeText("Are you sure you want to abort the scan?");
+        msgBox.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
+        int ret = msgBox.exec();
+
+        if (ret == QMessageBox::No) {
+            return;
+        }
+        if (ret == QMessageBox::Yes) {
+            this->stopScanning();
+        }
+    }
+
     this->openPage(PageTypes(this->currentWindow - 1));
 }
 
@@ -410,8 +543,9 @@ void MainWindow::radioButton_clicked() {
     if(ui->currentNetRadioButton->isChecked()) {
         this->networkInitializationType = NetworkInitializationTypes::CurrentNetwork;
 
-        ui->nextButton->setDisabled(false);
+
     }
+    ui->nextButton->setDisabled(!this->networkInputTypeIsCorrect());
 }
 
 void MainWindow::fileDialogOpenButton_clicked() {
@@ -459,10 +593,9 @@ void MainWindow::scanTypeRadioBtn_clicked() {
 }
 
 void MainWindow::portsInputRadioBtn_clicked() {
-    ui->manulPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
-    ui->firstPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
-    ui->lastPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+    this->setPortsInputs();
     ui->nextButton->setDisabled(false);
+
     if(ui->rangePortRadioButton->isChecked()) {
         if (ui->lastPortValue->value() < ui->firstPortValue->value()){
             ui->nextButton->setDisabled(true);
