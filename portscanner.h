@@ -53,7 +53,7 @@ private:
 
 signals:
     void portIsComplete(QString hostIP, quint32 port, PortStatus portStatus);
-    void portScanningComplete();
+    void portScanningComplete(QList<QString> hostsPortsStatus);
 };
 
 #endif // PORTSCANNER_H

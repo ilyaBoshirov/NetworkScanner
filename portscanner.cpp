@@ -69,7 +69,8 @@ void PortScanner::threadDetectHostOpenPorts() {
 void PortScanner::addHostPortStatus(QString host, quint32 port, PortStatus status) {
     this->hostsPorts[qMakePair(host, port)] = status;
 
-    QString statusStr("Host %1 port %2 is %3");
+    // ip|port|status
+    QString statusStr("%1|%2|%3");
     this->hostsPortsStatus.append(statusStr.arg(host).arg(port).arg(status == OPEN ? "OPEN" : "CLOSE/FILTERED"));
 }
 
@@ -88,7 +89,7 @@ QString PortScanner::getServiceName(QString ipAddress, quint32 port) {
 
 void PortScanner::run() {
     this->threadDetectHostOpenPorts();
-    emit portScanningComplete();
+    emit portScanningComplete(this->hostsPortsStatus);
 }
 
 QMap<QString,QString> PortScanner::getHostsOS() {
