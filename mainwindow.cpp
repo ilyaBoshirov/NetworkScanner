@@ -5,7 +5,8 @@
 #include <thread>
 #include <QRegularExpression>
 #include <QMessageBox>
-
+#include <QSet>
+#include <QMap>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -48,6 +49,13 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->lastPortValue, &QSpinBox::valueChanged, this, &MainWindow::selectPortSpinBox_valueChanged);
 
     connect(ui->manualPortLineEdit, &QLineEdit::textChanged, this, &MainWindow::manualPorts_change);
+
+    // exit page --------------------------------------------------------------------
+
+    connect(ui->newScanButton, &QPushButton::clicked, this, &MainWindow::newScan_clicked);
+    connect(ui->saveToJsonButton, &QPushButton::clicked, this, &MainWindow::saveToJson_clicked);
+    connect(ui->saveToDbButton, &QPushButton::clicked, this, &MainWindow::saveToDb_clicked);
+    connect(ui->exitWithoutSaveButton, &QPushButton::clicked, this, &MainWindow::exitWithoutSave_clicked);
 
     // make welcome page first --------------------------------------------------------------------
 
@@ -378,7 +386,7 @@ void MainWindow::startOpenPortsDetection() {
 
         // add connections
         connect(this->portScannersThreads[i], SIGNAL(portIsComplete(QString, quint32, PortStatus)), this,  SLOT(portDetectionIsComplete(QString, quint32, PortStatus)));
-        connect(this->portScannersThreads[i], SIGNAL(portScanningComplete()), this, SLOT(threadCompletePortsDetection()));
+        connect(this->portScannersThreads[i], SIGNAL(portScanningComplete(QList<QString>)), this, SLOT(threadCompletePortsDetection(QList<QString>)));
 
         this->portScannersThreads[i]->start();
     }
@@ -394,7 +402,8 @@ void MainWindow::portDetectionIsComplete(QString hostIP, quint32 port, PortStatu
     ui->portsDetectionProgressBar->setValue(currentPgrogressBarValue + 1);
 }
 
-void MainWindow::threadCompletePortsDetection() {
+void MainWindow::threadCompletePortsDetection(QList<QString> hostsPortsStatus) {
+    this->portsInfo += hostsPortsStatus;
     auto allIsComplete = true;
 
     foreach(auto thread, this->portScannersThreads) {
@@ -488,14 +497,107 @@ bool MainWindow::scanIsRunning() {
     return scanIsRunnig;
 }
 
+int MainWindow::runWarningMsgBox(QString text, QString infoText) {
+    QMessageBox msgBox;
+    msgBox.setText(text);
+    msgBox.setInformativeText(infoText);
+    msgBox.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
+    return msgBox.exec();
+}
+
+QJsonObject MainWindow::getJsonReport() {
+    QList<QString> scannedNetworks{};
+    if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
+        QString networksStr = ui->manualNetworkInput->text();
+        scannedNetworks = Scanner::getNetworksFromString(networksStr);
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::File) {
+        scannedNetworks = Scanner::getNetworksFromFile(ui->fileNetworkInput->text());
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
+        scannedNetworks = Scanner::getCurrentNetworks();
+    }
+
+    // process the report
+    QMap<QString, QList<QPair<QString, QString>>> resultHostInfo{};
+    QMap<QString, size_t> activeHostNumber{};
+
+    foreach(auto infoStr, this->portsInfo) {
+        auto parts = infoStr.split("|");
+        auto ip = parts[0];
+        auto port = parts[1];
+        auto info = parts[2];
+
+        if (resultHostInfo.find(ip) == resultHostInfo.end()) {
+            resultHostInfo[ip] = QList<QPair<QString, QString>>{};
+        }
+
+        resultHostInfo[ip].append(qMakePair(port, info));
+
+        foreach (auto net, scannedNetworks) {
+            if(Scanner::ipInNetwork(ip, net)) {
+                if(activeHostNumber.find(net) == activeHostNumber.end()) {
+                    activeHostNumber[net] = 0;
+                }
+                activeHostNumber[net] = activeHostNumber[net] + 1;
+                break;
+            }
+        }
+    }
+
+    // create json object report
+    QJsonObject jsonReport;
+    size_t netCounter = 1;
+    QList<QString> keysForDelete{};
+
+    foreach (auto net, scannedNetworks) {
+        QJsonObject netJsonObject;
+        netJsonObject["NetworkIp"] = net;
+        netJsonObject["HostNumber"] = Scanner::getNetworkIPs(net).size();
+        netJsonObject["ActiveHostNumber"] = QString::number(activeHostNumber[net]);
+
+        QJsonObject netHostsJsonObject;
+        for(auto ipInfo : resultHostInfo.toStdMap()) {
+            auto ip = ipInfo.first;
+            auto portAndInfoList = ipInfo.second;
+
+            if (!Scanner::ipInNetwork(ip, net)) {
+                continue;
+            }
+
+            QJsonObject hostJsonObject;
+            hostJsonObject["ip"] = ip;
+
+            QJsonObject portJsonObject;
+            foreach (auto item, portAndInfoList) {
+                auto port = item.first;
+                auto info = item.second;
+                portJsonObject[port] = info;
+            }
+            hostJsonObject["ports"] = portJsonObject;
+
+            keysForDelete.append(ip);
+
+            netHostsJsonObject[ip] = hostJsonObject;
+        }
+        netJsonObject["Hosts"] = netHostsJsonObject;
+
+        jsonReport[QString("Network%1").arg(netCounter)] = netJsonObject;
+        netCounter += 1;
+
+        foreach (auto key, keysForDelete) {
+            resultHostInfo.remove(key);
+        }
+        keysForDelete.clear();
+    }
+
+    return jsonReport;
+}
+
 // slots realization
 
-void MainWindow::exitButton_clicked(){
-    QMessageBox msgBox;
-    msgBox.setText("Exit program");
-    msgBox.setInformativeText("Are you sure you want to exit the programm?");
-    msgBox.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
-    int ret = msgBox.exec();
+void MainWindow::exitButton_clicked() {
+    auto ret = this->runWarningMsgBox("Exit program", "Are you sure you want to exit the programm?");
 
     if (ret == QMessageBox::No) {
         return;
@@ -512,11 +614,7 @@ void MainWindow::nextButton_clicked() {
 void MainWindow::prevButton_clicked() {
 
     if ((this->currentWindow == PageTypes::HostDetectingPage || this->currentWindow == PageTypes::PortsDetectingPage) && this->scanIsRunning()) {
-        QMessageBox msgBox;
-        msgBox.setText("Exit scanning");
-        msgBox.setInformativeText("Are you sure you want to abort the scan?");
-        msgBox.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
-        int ret = msgBox.exec();
+        auto ret = this->runWarningMsgBox("Exit scanning", "Are you sure you want to abort the scan?");
 
         if (ret == QMessageBox::No) {
             return;
@@ -563,7 +661,6 @@ void MainWindow::fileDialogOpenButton_clicked() {
     } else {
         ui->nextButton->setDisabled(false);
     }
-
 }
 
 void MainWindow::manualNetwork_change() {
@@ -620,4 +717,35 @@ void MainWindow::manualPorts_change() {
     } else {
         ui->nextButton->setDisabled(true);
     }
+}
+
+void MainWindow::newScan_clicked(){
+    this->openPage(PageTypes::NetworkSelectingPage);
+}
+
+void MainWindow::saveToJson_clicked() {
+    auto fileName = QFileDialog::getSaveFileName(
+        this,
+        tr("Save File"),
+        QApplication::applicationFilePath(),
+        "JSON (*.json)"
+        );
+
+
+    auto jsonObject = this->getJsonReport();
+
+    QJsonDocument jsonDoc(jsonObject);
+
+    QFile jsonFile(fileName);
+    jsonFile.open(QFile::WriteOnly);
+    jsonFile.write(jsonDoc.toJson());
+
+}
+
+void MainWindow::saveToDb_clicked() {
+
+}
+
+void MainWindow::exitWithoutSave_clicked() {
+    QApplication::exit(0);
 }

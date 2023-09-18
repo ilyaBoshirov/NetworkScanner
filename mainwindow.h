@@ -4,6 +4,10 @@
 #include <QMainWindow>
 #include <QVector>
 
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QJsonDocument>
+
 #include "dbmanager.h"
 #include "portscanner.h"
 #include "hostdetector.h"
@@ -45,6 +49,7 @@ public:
     void drowPortsSelectingPage();
     void drowScanningPortsPage();
     void drowExitPage();
+    int runWarningMsgBox(QString text, QString infoText);
     void setNetworkInput();
     void setPortsInputs();
     bool networkInputTypeIsCorrect();
@@ -61,6 +66,8 @@ public:
 
     void stopScanning();
     bool scanIsRunning();
+
+    QJsonObject getJsonReport();
 
     static QList<quint32> portsStrToQList(QString portsStr);
     static QList<size_t> tastsForThreads(size_t allTasksNumber, size_t threadsNumber);
@@ -84,7 +91,13 @@ private slots:
 
     // for port scanner
     void portDetectionIsComplete(QString hostIP, quint32 port, PortStatus portStatus);
-    void threadCompletePortsDetection();
+    void threadCompletePortsDetection(QList<QString> hostsPortsStatus);
+
+    // exit page
+    void newScan_clicked();
+    void saveToJson_clicked();
+    void saveToDb_clicked();
+    void exitWithoutSave_clicked();
 
 private:
     Ui::MainWindow *ui;
@@ -96,8 +109,11 @@ private:
 
     QVector<HostDetector*> hostDetectorThreads{};
     QVector<PortScanner*> portScannersThreads{};
-    QList<QString> activeHosts{};
 
+    // results repositories
+    QList<QString> activeHosts{};
+    QList<QString> portsInfo{};
+    // saving
     DBManager dbManager{};
 };
 #endif // MAINWINDOW_H
