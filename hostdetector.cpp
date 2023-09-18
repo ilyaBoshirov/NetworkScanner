@@ -1,16 +1,18 @@
 #include "hostdetector.h"
 
 #include <QProcess>
+#include <QTcpSocket>
 
-HostDetector::HostDetector() : Scanner() {
+HostDetector::HostDetector() : QThread(), Scanner() {
     this->scanType = ScanningTypes::Ping;
 }
 
-HostDetector::HostDetector(ScanningTypes scanType) : Scanner() {
+HostDetector::HostDetector(ScanningTypes scanType) : QThread(), Scanner() {
     this->scanType = scanType;
 }
 
-HostDetector::HostDetector(const QList<QString>& networks, ScanningTypes scanType) : Scanner(networks) {
+HostDetector::HostDetector(const QList<QString>& hosts, ScanningTypes scanType) : QThread(), Scanner() {
+    this->scannedHosts = hosts;
     this->scanType = scanType;
 }
 
@@ -55,12 +57,11 @@ void HostDetector::threadSynCheckHosts() {
     }
 }
 
-bool HostDetector::threadArpCheckHost() {
+void HostDetector::threadArpCheckHosts() {
 
 }
 
-void HostDetector::run() const {
-    this->scannedHosts = Scanner::getNetworksHosts(this->scannedHosts);
+void HostDetector::run() {
 
     if (this->scanType == ScanningTypes::Ping) {
         this->threadPingCheckHosts();
@@ -74,5 +75,5 @@ void HostDetector::run() const {
         this->threadSynCheckHosts();
     }
 
-    emit completeDetection(this);
+    emit completeDetection(this->getActiveHosts());
 }
