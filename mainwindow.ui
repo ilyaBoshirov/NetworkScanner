@@ -72,7 +72,7 @@
     <item row="4" column="0" colspan="5">
      <widget class="QStackedWidget" name="workSpace">
       <property name="currentIndex">
-       <number>5</number>
+       <number>4</number>
       </property>
       <widget class="QWidget" name="welcomePage">
        <layout class="QGridLayout" name="gridLayout_10">
@@ -330,7 +330,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>98</width>
+             <width>89</width>
              <height>89</height>
             </rect>
            </property>
@@ -383,7 +383,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
             </spacer>
            </item>
            <item row="1" column="2">
-            <widget class="QLineEdit" name="manulPortLineEdit"/>
+            <widget class="QLineEdit" name="manualPortLineEdit"/>
            </item>
            <item row="3" column="0">
             <widget class="QRadioButton" name="rangePortRadioButton">
@@ -538,7 +538,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
         </item>
        </layout>
       </widget>
-      <widget class="QWidget" name="page">
+      <widget class="QWidget" name="exitPage">
        <layout class="QVBoxLayout" name="verticalLayout_3">
         <item>
          <spacer name="verticalSpacer_14">
