@@ -357,3 +357,19 @@ bool Scanner::networksStringIsCorrect(QString networksString) {
 
     return true;
 }
+
+bool Scanner::ipInNetwork(QString ip, QString network) {
+    auto networkParts = network.split("/");
+
+    auto start = ipToInteger(networkParts[0]);
+    auto mask = networkParts[1].toInt();
+    auto hostNumber = (1 << (32 - mask)) - 1;
+
+    auto ipInt = ipToInteger(ip);
+
+    if (ipInt >= (start + 1) && ipInt <= (start + hostNumber - 1)) {
+        return true;
+    }
+
+    return false;
+}
