@@ -179,7 +179,12 @@ int MainWindow::runWarningMsgBox(const QString& text, const QString& infoText) {
 }
 
 void MainWindow::drowAboutPage(){
-    //todo
+    QMessageBox msgBox;
+    msgBox.setText("This application was create by Ilya Boshirov");
+    msgBox.setInformativeText("Version: 1.0\ngit: https://github.com/ilyaBoshirov");
+    msgBox.setWindowTitle("ABOUT");
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.exec();
 }
 
 // some functions for updating some of ui components -------------------------------------------------------
@@ -902,10 +907,5 @@ void MainWindow::threadCompletePortsDetection(const QList<QString>& hostsPortsSt
 }
 
 void MainWindow::aboutButton_clicked() {
-    QMessageBox msgBox;
-    msgBox.setText("This application was create by Ilya Boshirov");
-    msgBox.setInformativeText("Version: 1.0\ngit: https://github.com/ilyaBoshirov");
-    msgBox.setWindowTitle("ABOUT");
-    msgBox.setStandardButtons(QMessageBox::Ok);
-    msgBox.exec();
+    this->drowAboutPage();
 }
