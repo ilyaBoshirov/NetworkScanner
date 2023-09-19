@@ -5,7 +5,7 @@
 #include <QList>
 #include <QSqlDatabase>
 
-#define defaultDBName "NetworkScanner.db"
+#define defaultDBName "NetworkScannerResults.db"
 
 class DBManager {
     QString  dbName{ defaultDBName };
@@ -22,7 +22,7 @@ public:
     bool chooseTable(const QString& tableName);
     bool tableisExist(const QString& tableName);
     void closeDB();
-    bool addNewIP(const QString& ip, const QString& os = "", const QString& ports = "");
+    bool addNewIP(const QString& ip, const QString& ports = "", const QString& os = "");
 };
 
 #endif // DBMANAGER_H

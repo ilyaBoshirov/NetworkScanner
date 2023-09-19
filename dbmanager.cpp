@@ -40,11 +40,12 @@ QList<QString> DBManager::getDBTables() {
 
 bool DBManager::createNewTable(const QString& tableName) {
     QSqlQuery query(this->db);
-    QString request = "CREATE TABLE %1 (id INTEGER PRIMARY KEY, ip TEXT, os TEXT, ports TEXT);";
+    QString request = "CREATE TABLE %1 (id INTEGER PRIMARY KEY, ip TEXT, ports TEXT, os TEXT);";
 
     if(query.exec(request.arg(tableName))) {
         qInfo() << "SUCCESS CREATE TABLE" << tableName;
         this->dbTables.push_back(tableName);
+        this->currentTable = tableName;
     }
     else {
         qDebug() << "CREATE TABLE" << tableName << "ERROR:" << query.lastError();
@@ -77,15 +78,15 @@ void DBManager::closeDB() {
     this->db.close();
 }
 
-bool DBManager::addNewIP(const QString& ip, const QString& os, const QString& ports) {
+bool DBManager::addNewIP(const QString& ip, const QString& ports, const QString& os) {
     QSqlQuery query(this->db);
 
-    QString request {"INSERT INTO %1 (ip, os, ports) VALUES (:ip, :os, :ports);"};
+    QString request {"INSERT INTO %1 (ip, ports, os) VALUES (:ip, :ports, :os);"};
     query.prepare(request.arg(this->currentTable));
     query.bindValue(":table", this->currentTable);
     query.bindValue(":ip", ip);
-    query.bindValue(":os", os);
     query.bindValue(":ports", ports);
+    query.bindValue(":os", os);
 
     if(query.exec()) {
         qInfo() << "SUCCESS" << query.lastQuery();
