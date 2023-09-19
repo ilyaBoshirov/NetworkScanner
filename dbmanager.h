@@ -16,6 +16,9 @@ class DBManager {
 public:
     DBManager();
 
+    QString getDbName();
+    void setDbName(const QString& dbName);
+
     bool connectToDB();
     QList<QString> getDBTables();
     bool createNewTable(const QString& tableName);

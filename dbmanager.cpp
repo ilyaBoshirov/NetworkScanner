@@ -21,6 +21,14 @@ DBManager::DBManager() {
     this->dbTables = this->db.tables();
 }
 
+QString DBManager::getDbName() {
+    return this->dbName;
+}
+
+void DBManager::setDbName(const QString& dbName) {
+    this->dbName = dbName;
+}
+
 bool DBManager::connectToDB() {
     db.close();
     db.setDatabaseName(this->dbName);
