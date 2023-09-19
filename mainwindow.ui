@@ -72,7 +72,7 @@
     <item row="4" column="0" colspan="5">
      <widget class="QStackedWidget" name="workSpace">
       <property name="currentIndex">
-       <number>6</number>
+       <number>4</number>
       </property>
       <widget class="QWidget" name="welcomePage">
        <layout class="QGridLayout" name="gridLayout_10">
@@ -330,8 +330,8 @@ li.checked::marker { content: &quot;\2612&quot;; }
             <rect>
              <x>0</x>
              <y>0</y>
-             <width>89</width>
-             <height>89</height>
+             <width>762</width>
+             <height>459</height>
             </rect>
            </property>
            <layout class="QGridLayout" name="gridLayout_2">
@@ -369,6 +369,26 @@ li.checked::marker { content: &quot;\2612&quot;; }
            <enum>QFrame::Raised</enum>
           </property>
           <layout class="QGridLayout" name="gridLayout_5">
+           <item row="5" column="0">
+            <widget class="QRadioButton" name="allPortsRadioButton">
+             <property name="styleSheet">
+              <string notr="true">font: 12pt &quot;Segoe UI&quot;;</string>
+             </property>
+             <property name="text">
+              <string>All tcp ports</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="2">
+            <widget class="QLabel" name="label_7">
+             <property name="text">
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:14pt;&quot;&gt;Threads Number&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+             </property>
+            </widget>
+           </item>
+           <item row="6" column="0">
+            <widget class="QSpinBox" name="portThread"/>
+           </item>
            <item row="0" column="2">
             <spacer name="verticalSpacer_12">
              <property name="orientation">
@@ -382,36 +402,10 @@ li.checked::marker { content: &quot;\2612&quot;; }
              </property>
             </spacer>
            </item>
-           <item row="1" column="2">
-            <widget class="QLineEdit" name="manualPortLineEdit"/>
-           </item>
-           <item row="3" column="0">
-            <widget class="QRadioButton" name="rangePortRadioButton">
-             <property name="styleSheet">
-              <string notr="true">font: 12pt &quot;Segoe UI&quot;;</string>
-             </property>
+           <item row="5" column="2">
+            <widget class="QLabel" name="label_14">
              <property name="text">
-              <string>Range</string>
-             </property>
-            </widget>
-           </item>
-           <item row="1" column="0">
-            <widget class="QRadioButton" name="manualPortRadioButton">
-             <property name="styleSheet">
-              <string notr="true">font: 12pt &quot;Segoe UI&quot;;</string>
-             </property>
-             <property name="text">
-              <string>Manual</string>
-             </property>
-            </widget>
-           </item>
-           <item row="5" column="0">
-            <widget class="QRadioButton" name="allPortsRadioButton">
-             <property name="styleSheet">
-              <string notr="true">font: 12pt &quot;Segoe UI&quot;;</string>
-             </property>
-             <property name="text">
-              <string>All tcp ports</string>
+              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;1 - 65535&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
              </property>
             </widget>
            </item>
@@ -467,20 +461,30 @@ li.checked::marker { content: &quot;\2612&quot;; }
              </layout>
             </widget>
            </item>
-           <item row="6" column="2">
-            <spacer name="verticalSpacer_11">
-             <property name="orientation">
-              <enum>Qt::Vertical</enum>
-             </property>
-             <property name="sizeHint" stdset="0">
-              <size>
-               <width>20</width>
-               <height>40</height>
-              </size>
-             </property>
-            </spacer>
+           <item row="1" column="2">
+            <widget class="QLineEdit" name="manualPortLineEdit"/>
            </item>
-           <item row="7" column="2">
+           <item row="1" column="0">
+            <widget class="QRadioButton" name="manualPortRadioButton">
+             <property name="styleSheet">
+              <string notr="true">font: 12pt &quot;Segoe UI&quot;;</string>
+             </property>
+             <property name="text">
+              <string>Manual</string>
+             </property>
+            </widget>
+           </item>
+           <item row="3" column="0">
+            <widget class="QRadioButton" name="rangePortRadioButton">
+             <property name="styleSheet">
+              <string notr="true">font: 12pt &quot;Segoe UI&quot;;</string>
+             </property>
+             <property name="text">
+              <string>Range</string>
+             </property>
+            </widget>
+           </item>
+           <item row="8" column="2">
             <spacer name="verticalSpacer_13">
              <property name="orientation">
               <enum>Qt::Vertical</enum>
@@ -493,12 +497,18 @@ li.checked::marker { content: &quot;\2612&quot;; }
              </property>
             </spacer>
            </item>
-           <item row="5" column="2">
-            <widget class="QLabel" name="label_14">
-             <property name="text">
-              <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;&lt;span style=&quot; font-size:12pt;&quot;&gt;1 - 65535&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+           <item row="9" column="2">
+            <spacer name="verticalSpacer_6">
+             <property name="orientation">
+              <enum>Qt::Vertical</enum>
              </property>
-            </widget>
+             <property name="sizeHint" stdset="0">
+              <size>
+               <width>20</width>
+               <height>40</height>
+              </size>
+             </property>
+            </spacer>
            </item>
           </layout>
          </widget>
