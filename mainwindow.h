@@ -37,10 +37,24 @@ enum NetworkInitializationTypes {
 class MainWindow : public QMainWindow {
     Q_OBJECT
 
+    Ui::MainWindow *ui; // graphics
+
+    quint32 currentWindow{};  // current open window
+    qint32 networkInitializationType{ -1 };
+    bool networksIsCorrect { false };
+    bool progressSaved { false };
+    qint32 scanningType { -1 };
+    QVector<HostDetector*> hostDetectorThreads{};  // container for threads
+    QVector<PortScanner*> portScannersThreads{};  // container for threads
+    QList<QString> activeHosts{};  // detect active hosts results repositories
+    QList<QString> portsInfo{};  // get ports info results repositories
+    DBManager dbManager{};  // object for saving in database
+
 public:
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
+    // work with pages
     void openPage(const PageTypes &pageType);
     void drowWelcomePage();
     void drowNetworkSelectingPage();
@@ -49,29 +63,38 @@ public:
     void drowPortsSelectingPage();
     void drowScanningPortsPage();
     void drowExitPage();
-    int runWarningMsgBox(QString text, QString infoText);
+
+    // work with extra windows
+    int runWarningMsgBox(const QString& text, const QString& infoText);
+    void drowAboutPage();  // todo
+
+    // some functions for updating some of ui components
     void setNetworkInput();
     void setPortsInputs();
+
+    // check correctness of user inputs and choice
     bool networkInputTypeIsCorrect();
     bool portInputTypeIsCorrect();
-
-    void startActiveHostDetection();
-    void waitingHostDetection();
-
     bool portsIsCheck();
     bool portsStrIsCorrect();
-    QList<quint32> getPortsForScan();
-    void startOpenPortsDetection();
-    void waitingOpenPortsDetection();
 
+    // functions for getting value from ui
+    QList<quint32> getPortsForScan();
+
+    // scanning
+    void startActiveHostDetection();
+    void startOpenPortsDetection();
     void stopScanning();
     bool scanIsRunning();
 
+    // saving results
     QJsonObject getJsonReport();
+    void saveToDb();
 
-    static QList<quint32> portsStrToQList(QString portsStr);
-    static QList<size_t> tastsForThreads(size_t allTasksNumber, size_t threadsNumber);
-    static QList<QList<QPair<QString, QList<quint32>>>> splitHostsAndPortsForThread(QList<QString> activeHosts, QList<quint32> ports, size_t threadsNumber);
+    // static functions
+    static QList<quint32> portsStrToQList(const QString& portsStr);
+    static QList<size_t> tastsForThreads(const size_t& allTasksNumber, const size_t& threadsNumber);
+    static QList<QList<QPair<QString, QList<quint32>>>> splitHostsAndPortsForThread(const QList<QString>& activeHosts, const QList<quint32>& ports, const size_t& threadsNumber);
 
 private slots:
     void exitButton_clicked();
@@ -84,36 +107,16 @@ private slots:
     void portsInputRadioBtn_clicked();
     void selectPortSpinBox_valueChanged();
     void manualPorts_change();
-
-    // for host scanner
-    void hostDetectionIsComplete(QString hostIP, bool isActive);
-    void threadCompleteHostsDetection(QList<QString> activeHosts);
-
-    // for port scanner
-    void portDetectionIsComplete(QString hostIP, quint32 port, PortStatus portStatus);
-    void threadCompletePortsDetection(QList<QString> hostsPortsStatus);
-
     // exit page
     void newScan_clicked();
     void saveToJson_clicked();
     void saveToDb_clicked();
     void exitWithoutSave_clicked();
-
-private:
-    Ui::MainWindow *ui;
-
-    quint32 currentWindow{};
-    qint32 networkInitializationType{ -1 };
-    bool networksIsCorrect {false};
-    qint32 scanningType{-1};
-
-    QVector<HostDetector*> hostDetectorThreads{};
-    QVector<PortScanner*> portScannersThreads{};
-
-    // results repositories
-    QList<QString> activeHosts{};
-    QList<QString> portsInfo{};
-    // saving
-    DBManager dbManager{};
+    // for host scanner (updating progress bar and accumulate result)
+    void hostDetectionIsComplete(const QString& hostIP, bool isActive);
+    void threadCompleteHostsDetection(const QList<QString>& activeHosts);
+    // for port scanner (updating progress bar and accumulate result)
+    void portDetectionIsComplete(const QString& hostIP, const quint32& port, const PortStatus& portStatus);
+    void threadCompletePortsDetection(const QList<QString>& hostsPortsStatus);
 };
 #endif // MAINWINDOW_H

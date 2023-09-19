@@ -7,6 +7,10 @@
 #include <QMessageBox>
 #include <QSet>
 #include <QMap>
+#include <QDate>
+
+
+// constructors ----------------------------------------------------------------------------------------
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWindow) {
     ui->setupUi(this);
@@ -68,6 +72,8 @@ MainWindow::~MainWindow() {
     delete ui;
 }
 
+// work with pages ---------------------------------------------------------------------------------------
+
 void MainWindow::openPage(const PageTypes &pageType) {
     auto prevPage = PageTypes(ui->workSpace->currentIndex());
     ui->workSpace->setCurrentIndex(pageType);
@@ -107,7 +113,7 @@ void MainWindow::openPage(const PageTypes &pageType) {
         return;
     }
     else if(pageType == PageTypes::ExitPage) {
-
+        this->drowExitPage();
     }
 
 }
@@ -141,20 +147,6 @@ void MainWindow::drowScanningPortsPage() {
     ui->prevButton->setDisabled(false);
 }
 
-bool MainWindow::portsIsCheck() {
-    return (
-        ui->manualRadioButton->isChecked() &&
-        ui->rangePortRadioButton->isChecked() &&
-        ui->allPortsRadioButton->isChecked()
-        );
-}
-
-void MainWindow::setPortsInputs() {
-    ui->manualPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
-    ui->firstPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
-    ui->lastPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
-}
-
 void MainWindow::drowPortsSelectingPage() {
     // set inputs (current networks)
     this->setPortsInputs();
@@ -169,6 +161,22 @@ void MainWindow::drowExitPage() {
     ui->prevButton->setDisabled(false);
 }
 
+// work with pages ---------------------------------------------------------------------------------------
+
+int MainWindow::runWarningMsgBox(const QString& text, const QString& infoText) {
+    QMessageBox msgBox;
+    msgBox.setText(text);
+    msgBox.setInformativeText(infoText);
+    msgBox.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
+    return msgBox.exec();
+}
+
+void MainWindow::drowAboutPage(){
+    //todo
+}
+
+// some functions for updating some of ui components -------------------------------------------------------
+
 void MainWindow::setNetworkInput() {
     ui->currentNetworksLabel->setText(Scanner::currentNetworksToQSting());
     ui->manualNetworkInput->setDisabled(!ui->manualRadioButton->isChecked());
@@ -176,253 +184,18 @@ void MainWindow::setNetworkInput() {
     ui->fileDialogOpenButton->setDisabled(!ui->fileRadioButton->isChecked());
 }
 
-QList<size_t> MainWindow::tastsForThreads(size_t allTasksNumber, size_t threadsNumber) {
-    size_t hostPerThr = allTasksNumber / threadsNumber;
-    size_t extraHostsNumber = allTasksNumber % threadsNumber;
-
-    QList<size_t> hostsNumbers(threadsNumber, hostPerThr);
-    for(auto i{0}; i < extraHostsNumber; ++i) {
-        hostsNumbers[i] += 1;
-    }
-
-    return hostsNumbers;
+void MainWindow::setPortsInputs() {
+    ui->manualPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
+    ui->firstPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+    ui->lastPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
 }
 
-void MainWindow::startActiveHostDetection() {
-    // buttons
-    ui->nextButton->setDisabled(true);
-    ui->prevButton->setDisabled(false);
-
-    QList<QString> hostsForDetecion{};
-
-    if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
-        QString networksStr = ui->manualNetworkInput->text();
-        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getNetworksFromString(networksStr));
-
-    }
-    if (this->networkInitializationType == NetworkInitializationTypes::File) {
-        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getNetworksFromFile(ui->fileNetworkInput->text()));
-    }
-    if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
-        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getCurrentNetworks());
-    }
-
-    // set progress bar
-    ui->hostDetectionProgressBar->setMinimum(0);
-    ui->hostDetectionProgressBar->setMaximum(hostsForDetecion.size());
-    ui->hostDetectionProgressBar->setValue(0);
-
-    // set text browser
-    ui->activeHostBrowser->clear();
-
-    // start threading
-    quint32 threadNumber = ui->threadNumberBox->value();
-
-    auto hostsForThreadsNumbers = MainWindow::tastsForThreads(hostsForDetecion.size(), threadNumber);
-
-    this->hostDetectorThreads.clear();
-
-    size_t hostCounter = 0;
-    for(auto i = 0; i < threadNumber; ++i) {
-        if (hostsForThreadsNumbers[i] == 0) {
-            break;
-        }
-        this->hostDetectorThreads.push_back(new HostDetector(hostsForDetecion.mid(hostCounter, hostsForThreadsNumbers[i]), ScanningTypes(this->scanningType)));
-        hostCounter += hostsForThreadsNumbers[i];
-
-        // add connections
-        connect(this->hostDetectorThreads[i], SIGNAL(hostIsComplete(QString, bool)), this,  SLOT(hostDetectionIsComplete(QString, bool)));
-        connect(this->hostDetectorThreads[i], SIGNAL(completeDetection(QList<QString>)), this, SLOT(threadCompleteHostsDetection(QList<QString>)));
-
-        this->hostDetectorThreads[i]->start();
-    }
-}
-
-void MainWindow::hostDetectionIsComplete(QString hostIP, bool isActive) {
-    if (isActive) {
-        ui->activeHostBrowser->append(hostIP + " is ACTIVE;\n");
-    }
-    auto currentPgrogressBarValue = ui->hostDetectionProgressBar->value();
-    ui->hostDetectionProgressBar->setValue(currentPgrogressBarValue + 1);
-}
-
-void MainWindow::threadCompleteHostsDetection(QList<QString> activeHosts) {
-    this->activeHosts += activeHosts;
-
-    auto allIsComplete = true;
-
-    foreach(auto thread, this->hostDetectorThreads) {
-        if (!thread->isFinished()) {
-            allIsComplete = false;
-            break;
-        }
-    }
-
-    if (allIsComplete) {
-        ui->nextButton->setDisabled(false);
-    }
-}
-
-bool MainWindow::portsStrIsCorrect() {
-    auto ports = ui->manualPortLineEdit->text().split(QRegularExpression("[,;\r\n\t ]+"));
-
-    QRegularExpression re("^(\\d{1,5})$");
-    QRegularExpressionMatch match;
-
-    foreach (auto port, ports) {
-        match = re.match(port);
-
-        if (!match.hasMatch()) {
-            return false;
-        }
-
-        auto intPort = match.captured(0).toInt();
-        if (intPort < 1 || intPort > 65535) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-QList<quint32> MainWindow::portsStrToQList(QString portsStr) {
-    auto ports = portsStr.split(QRegularExpression("[,;\r\n\t ]+"));
-
-    QList<quint32> intPorts{};
-    foreach (auto port, ports) {
-        intPorts.append(port.toInt());
-    }
-
-    return intPorts;
-}
-
-QList<quint32> MainWindow::getPortsForScan() {
-    QList<quint32> ports{};
-    if(ui->manualPortRadioButton->isChecked()) {
-        return portsStrToQList(ui->manualPortLineEdit->text());
-    }
-
-    if(ui->rangePortRadioButton->isChecked()) {
-        auto firstPort = ui->firstPortValue->value();
-        auto lastPort = ui->lastPortValue->value();
-
-        ports.resize(lastPort - firstPort + 1);
-        std::iota(ports.begin(), ports.end(), firstPort);
-        return ports;
-    }
-
-    if(ui->allPortsRadioButton->isChecked()) {
-        ports.resize(PortScanner::lastPort);
-        std::iota(ports.begin(), ports.end(), PortScanner::firstPort);
-        return ports;
-    }
-
-    return QList<quint32>{};
-}
-
-QList<QList<QPair<QString, QList<quint32>>>> MainWindow::splitHostsAndPortsForThread(QList<QString> activeHosts, QList<quint32> ports, size_t threadsNumber) {
-    auto activeHostsSize = activeHosts.size();
-    auto portsSize = ports.size();
-
-    // number of tasks for threads
-    QList<size_t> threadsConnections = MainWindow::tastsForThreads(activeHostsSize * portsSize, threadsNumber);
-
-    QList<QList<QPair<QString, QList<quint32>>>> tasksForAllThreads{};
-    QList<QPair<QString, QList<quint32>>> treadTasks{};
-
-    QList<quint32> tempPorts{};
-    size_t threadConnectionsNumber{0};
-    size_t threadIndex{0};
-
-    for(auto i{0}; i < activeHostsSize; ++i) {
-        for(auto j{0}; j < portsSize; ++j) {
-            if (threadConnectionsNumber == threadsConnections[threadIndex]) {
-                treadTasks.append(qMakePair(activeHosts[i], tempPorts));
-                tasksForAllThreads.append(treadTasks);
-                treadTasks.clear();
-
-                tempPorts.clear();
-                ++threadIndex;
-                threadConnectionsNumber = 0;
-            }
-            tempPorts.append(ports[j]);
-            threadConnectionsNumber += 1;
-        }
-
-        treadTasks.append(qMakePair(activeHosts[i], tempPorts));
-        tempPorts.clear();
-    }
-
-    tasksForAllThreads.append(treadTasks);
-
-    return tasksForAllThreads;
-}
-
-void MainWindow::startOpenPortsDetection() {
-    // buttons
-    ui->nextButton->setDisabled(true);
-    ui->prevButton->setDisabled(false);
-
-    auto portsForScan = this->getPortsForScan();
-
-    // write progress bar
-    ui->portsDetectionProgressBar->setMinimum(0);
-    ui->portsDetectionProgressBar->setValue(0);
-    ui->portsDetectionProgressBar->setMaximum(this->activeHosts.size() * portsForScan.size());
-
-    // text browser
-    ui->openPortsBrowser->clear();
-
-    // start threading
-
-    quint32 threadNumber = ui->threadNumberBox->value();  // todo add thread number to page
-
-    auto targetsForThread = MainWindow::splitHostsAndPortsForThread(this->activeHosts, portsForScan, threadNumber);
-
-    this->portScannersThreads.clear();
-
-    for(auto i{0}; i < threadNumber; ++i) {
-        this->portScannersThreads.push_back(new PortScanner(targetsForThread[i]));
-
-        // add connections
-        connect(this->portScannersThreads[i], SIGNAL(portIsComplete(QString, quint32, PortStatus)), this,  SLOT(portDetectionIsComplete(QString, quint32, PortStatus)));
-        connect(this->portScannersThreads[i], SIGNAL(portScanningComplete(QList<QString>)), this, SLOT(threadCompletePortsDetection(QList<QString>)));
-
-        this->portScannersThreads[i]->start();
-    }
-    // end
-    ui->nextButton->setDisabled(false);
-}
-
-void MainWindow::portDetectionIsComplete(QString hostIP, quint32 port, PortStatus portStatus) {
-    if (portStatus == PortStatus::OPEN) {
-        ui->openPortsBrowser->append(hostIP + QString(":%1").arg(port) +  + " --- OPEN;\n");
-    }
-    auto currentPgrogressBarValue = ui->portsDetectionProgressBar->value();
-    ui->portsDetectionProgressBar->setValue(currentPgrogressBarValue + 1);
-}
-
-void MainWindow::threadCompletePortsDetection(QList<QString> hostsPortsStatus) {
-    this->portsInfo += hostsPortsStatus;
-    auto allIsComplete = true;
-
-    foreach(auto thread, this->portScannersThreads) {
-        if (!thread->isFinished()) {
-            allIsComplete = false;
-            break;
-        }
-    }
-
-    if (allIsComplete) {
-        ui->nextButton->setDisabled(false);
-    }
-}
+// check correctness of user inputs and choice ------------------------------------------------------------------
 
 bool MainWindow::networkInputTypeIsCorrect() {
     if(ui->manualRadioButton->isChecked()) {
         QString str = ui->manualNetworkInput->text();
-        qDebug() << Scanner::getNetworksFromString(str).size();
-        if (Scanner::getNetworksFromString(str).size() > 0 && str.length() > 0) {
+        if (Scanner::networksStringIsCorrect(str)) {
             return true;
         } else {
             return false;
@@ -468,6 +241,150 @@ bool MainWindow::portInputTypeIsCorrect() {
     return false;
 }
 
+bool MainWindow::portsIsCheck() {
+    return (
+        ui->manualRadioButton->isChecked() &&
+        ui->rangePortRadioButton->isChecked() &&
+        ui->allPortsRadioButton->isChecked()
+        );
+}
+
+bool MainWindow::portsStrIsCorrect() {
+    auto ports = ui->manualPortLineEdit->text().split(QRegularExpression("[,;\r\n\t ]+"));
+
+    QRegularExpression re("^(\\d{1,5})$");
+    QRegularExpressionMatch match;
+
+    foreach (const auto& port, ports) {
+        match = re.match(port);
+
+        if (!match.hasMatch()) {
+            return false;
+        }
+
+        auto intPort = match.captured(0).toInt();
+        if (intPort < 1 || intPort > 65535) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+// functions for getting value from ui ----------------------------------------------------------------------------
+
+QList<quint32> MainWindow::getPortsForScan() {
+    QList<quint32> ports{};
+    if(ui->manualPortRadioButton->isChecked()) {
+        return portsStrToQList(ui->manualPortLineEdit->text());
+    }
+
+    if(ui->rangePortRadioButton->isChecked()) {
+        auto firstPort = ui->firstPortValue->value();
+        auto lastPort = ui->lastPortValue->value();
+
+        ports.resize(lastPort - firstPort + 1);
+        std::iota(ports.begin(), ports.end(), firstPort);
+        return ports;
+    }
+
+    if(ui->allPortsRadioButton->isChecked()) {
+        ports.resize(PortScanner::lastPort);
+        std::iota(ports.begin(), ports.end(), PortScanner::firstPort);
+        return ports;
+    }
+
+    return QList<quint32>{};
+}
+
+// scanning ----------------------------------------------------------------------------------------------------
+
+void MainWindow::startActiveHostDetection() {
+    // buttons
+    ui->nextButton->setDisabled(true);
+    ui->prevButton->setDisabled(false);
+
+    QList<QString> hostsForDetecion{};
+
+    if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
+        QString networksStr = ui->manualNetworkInput->text();
+        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getNetworksFromString(networksStr));
+
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::File) {
+        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getNetworksFromFile(ui->fileNetworkInput->text()));
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
+        hostsForDetecion = Scanner::getNetworksHosts(Scanner::getCurrentNetworks());
+    }
+
+    // set progress bar
+    ui->hostDetectionProgressBar->setMinimum(0);
+    ui->hostDetectionProgressBar->setMaximum(hostsForDetecion.size());
+    ui->hostDetectionProgressBar->setValue(0);
+
+    // set text browser
+    ui->activeHostBrowser->clear();
+
+    // start threading
+    quint32 threadNumber = ui->threadNumberBox->value();
+
+    auto hostsForThreadsNumbers = MainWindow::tastsForThreads(hostsForDetecion.size(), threadNumber);
+
+    this->hostDetectorThreads.clear();
+
+    size_t hostCounter = 0;
+    for(auto i { 0 }; i < threadNumber; ++i) {
+        if (hostsForThreadsNumbers[i] == 0) {
+            break;
+        }
+        this->hostDetectorThreads.push_back(new HostDetector(hostsForDetecion.mid(hostCounter, hostsForThreadsNumbers[i]), ScanningTypes(this->scanningType)));
+        hostCounter += hostsForThreadsNumbers[i];
+
+        // add connections
+        connect(this->hostDetectorThreads[i], &HostDetector::hostIsComplete, this, &MainWindow::hostDetectionIsComplete);
+        connect(this->hostDetectorThreads[i], &HostDetector::completeDetection, this, &MainWindow::threadCompleteHostsDetection);
+
+        this->hostDetectorThreads[i]->start();
+    }
+}
+
+void MainWindow::startOpenPortsDetection() {
+    // buttons
+    ui->nextButton->setDisabled(true);
+    ui->prevButton->setDisabled(false);
+
+    auto portsForScan = this->getPortsForScan();
+
+    // write progress bar
+    ui->portsDetectionProgressBar->setMinimum(0);
+    ui->portsDetectionProgressBar->setValue(0);
+    ui->portsDetectionProgressBar->setMaximum(this->activeHosts.size() * portsForScan.size());
+
+    // text browser
+    ui->openPortsBrowser->clear();
+
+    // start threading
+
+    quint32 threadNumber = ui->threadNumberBox->value();  // todo add thread number to page
+
+    auto targetsForThread = MainWindow::splitHostsAndPortsForThread(this->activeHosts, portsForScan, threadNumber);
+
+    this->portScannersThreads.clear();
+
+    for(auto i{0}; i < threadNumber; ++i) {
+        this->portScannersThreads.push_back(new PortScanner(targetsForThread[i]));
+
+        // add connections
+        connect(this->portScannersThreads[i], &PortScanner::portIsComplete, this, &MainWindow::portDetectionIsComplete);
+        connect(this->portScannersThreads[i], &PortScanner::portScanningComplete, this, &MainWindow::threadCompletePortsDetection);
+
+        this->portScannersThreads[i]->start();
+    }
+    // end
+    ui->nextButton->setDisabled(false);
+}
+
 void MainWindow::stopScanning() {
     size_t threadsNumber = (this->currentWindow == PageTypes::HostDetectingPage) ? this->hostDetectorThreads.size() : this->portScannersThreads.size();
     for (auto i{0}; i < threadsNumber; ++i) {
@@ -497,15 +414,13 @@ bool MainWindow::scanIsRunning() {
     return scanIsRunnig;
 }
 
-int MainWindow::runWarningMsgBox(QString text, QString infoText) {
-    QMessageBox msgBox;
-    msgBox.setText(text);
-    msgBox.setInformativeText(infoText);
-    msgBox.setStandardButtons(QMessageBox::No | QMessageBox::Yes);
-    return msgBox.exec();
-}
+// saving results realization ----------------------------------------------------------------------------
 
 QJsonObject MainWindow::getJsonReport() {
+    /*
+     * Generating a report in json format
+    */
+
     QList<QString> scannedNetworks{};
     if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
         QString networksStr = ui->manualNetworkInput->text();
@@ -521,8 +436,9 @@ QJsonObject MainWindow::getJsonReport() {
     // process the report
     QMap<QString, QList<QPair<QString, QString>>> resultHostInfo{};
     QMap<QString, size_t> activeHostNumber{};
+    QSet<QString> uniqueIp{};
 
-    foreach(auto infoStr, this->portsInfo) {
+    foreach(const auto& infoStr, this->portsInfo) {
         auto parts = infoStr.split("|");
         auto ip = parts[0];
         auto port = parts[1];
@@ -534,13 +450,16 @@ QJsonObject MainWindow::getJsonReport() {
 
         resultHostInfo[ip].append(qMakePair(port, info));
 
-        foreach (auto net, scannedNetworks) {
+        foreach (const auto& net, scannedNetworks) {
             if(Scanner::ipInNetwork(ip, net)) {
                 if(activeHostNumber.find(net) == activeHostNumber.end()) {
                     activeHostNumber[net] = 0;
                 }
-                activeHostNumber[net] = activeHostNumber[net] + 1;
-                break;
+                if (uniqueIp.find(ip) == uniqueIp.end()) {
+                    activeHostNumber[net] = activeHostNumber[net] + 1;
+                    uniqueIp.insert(ip);
+                    break;
+                }
             }
         }
     }
@@ -594,7 +513,151 @@ QJsonObject MainWindow::getJsonReport() {
     return jsonReport;
 }
 
-// slots realization
+QString getCurrentDate() {
+    /*
+     * Some auxiliary function
+    */
+    return QDate::currentDate().toString("yyyyMMdd");
+}
+
+void MainWindow::saveToDb() {
+    QList<QString> scannedNetworks{};
+    if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
+        QString networksStr = ui->manualNetworkInput->text();
+        scannedNetworks = Scanner::getNetworksFromString(networksStr);
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::File) {
+        scannedNetworks = Scanner::getNetworksFromFile(ui->fileNetworkInput->text());
+    }
+    if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
+        scannedNetworks = Scanner::getCurrentNetworks();
+    }
+
+    // accumulate ip resulst
+    QMap<QString, QString> resultIpsInfo{};
+    foreach (const auto& infoStr, this->portsInfo) {
+        auto parts = infoStr.split("|");
+        auto ip = parts[0];
+        auto port = parts[1];
+        auto info = parts[2];
+
+        if(resultIpsInfo.find(ip) == resultIpsInfo.end()) {
+            resultIpsInfo[ip] = "";
+        }
+        resultIpsInfo[ip] += QString("%1,").arg(port);
+    }
+
+    // create tables for scanning networks
+    size_t counter = 1;
+    QList<QString> keysForDelete{};
+    foreach (const auto& network, scannedNetworks) {
+        auto tableName = QString("%1_%2_%3").arg(network).arg(getCurrentDate()).arg(counter);
+        while(true) {
+            if (this->dbManager.tableisExist(tableName)) {
+                ++counter;
+            } else {
+                counter = 0;
+                break;
+            }
+        }
+
+        if(!this->dbManager.createNewTable(tableName)) {
+            qInfo() << "Cant create table";
+            return;
+        }
+
+        // add row to table
+        for(auto ipInfo : resultIpsInfo.toStdMap()) {
+            auto ip = ipInfo.first;
+            auto ports = ipInfo.second;
+
+            if (Scanner::ipInNetwork(ip, network)) {
+                this->dbManager.addNewIP(ip, ports);
+                keysForDelete.append(ip);
+            }
+        }
+
+        // delete processed data
+        foreach(const auto& key, keysForDelete){
+            resultIpsInfo.remove(key);
+        }
+        keysForDelete.clear();
+    }
+}
+
+// static functions ---------------------------------------------------------------------------------------
+
+QList<quint32> MainWindow::portsStrToQList(const QString& portsStr) {
+    auto ports = portsStr.split(QRegularExpression("[,;\r\n\t ]+"));
+
+    QList<quint32> intPorts{};
+    foreach (const auto& port, ports) {
+        intPorts.append(port.toInt());
+    }
+
+    return intPorts;
+}
+
+QList<size_t> MainWindow::tastsForThreads(const size_t& allTasksNumber, const size_t& threadsNumber) {
+    /*
+     * Calculating the number of tasks for each thread
+    */
+    size_t hostPerThr = allTasksNumber / threadsNumber;
+    size_t extraHostsNumber = allTasksNumber % threadsNumber;
+
+    QList<size_t> hostsNumbers(threadsNumber, hostPerThr);
+    for(auto i{0}; i < extraHostsNumber; ++i) {
+        hostsNumbers[i] += 1;
+    }
+
+    return hostsNumbers;
+}
+
+QList<QList<QPair<QString, QList<quint32>>>> MainWindow::splitHostsAndPortsForThread(const QList<QString>& activeHosts, const QList<quint32>& ports, const size_t& threadsNumber) {
+    /*
+     * Divide the task for threads
+     * Number of all tasks: host_number * ports_numbers
+     * Here were for all thread give task:   host, [port_1,...,port_n]
+    */
+
+    auto activeHostsSize = activeHosts.size();
+    auto portsSize = ports.size();
+
+    // number of tasks for threads
+    QList<size_t> threadsConnections = MainWindow::tastsForThreads(activeHostsSize * portsSize, threadsNumber);
+
+    QList<QList<QPair<QString, QList<quint32>>>> tasksForAllThreads{};
+    QList<QPair<QString, QList<quint32>>> treadTasks{};
+
+    QList<quint32> tempPorts{};
+    size_t threadConnectionsNumber{0};
+    size_t threadIndex{0};
+
+    for(auto i{0}; i < activeHostsSize; ++i) {
+        for(auto j{0}; j < portsSize; ++j) {
+            if (threadConnectionsNumber == threadsConnections[threadIndex]) {
+                treadTasks.append(qMakePair(activeHosts[i], tempPorts));
+                tasksForAllThreads.append(treadTasks);
+                treadTasks.clear();
+
+                tempPorts.clear();
+                ++threadIndex;
+                threadConnectionsNumber = 0;
+            }
+            tempPorts.append(ports[j]);
+            threadConnectionsNumber += 1;
+        }
+
+        treadTasks.append(qMakePair(activeHosts[i], tempPorts));
+        tempPorts.clear();
+    }
+
+    tasksForAllThreads.append(treadTasks);
+
+    return tasksForAllThreads;
+}
+
+// slots realization -----------------------------------------------------------------------------------------------------
 
 void MainWindow::exitButton_clicked() {
     auto ret = this->runWarningMsgBox("Exit program", "Are you sure you want to exit the programm?");
@@ -664,7 +727,7 @@ void MainWindow::fileDialogOpenButton_clicked() {
 }
 
 void MainWindow::manualNetwork_change() {
-    if (Scanner::networkIsCorrect(ui->manualNetworkInput->text())) {
+    if (Scanner::networksStringIsCorrect(ui->manualNetworkInput->text())) {
         ui->nextButton->setDisabled(false);
     } else {
         ui->nextButton->setDisabled(true);
@@ -720,6 +783,14 @@ void MainWindow::manualPorts_change() {
 }
 
 void MainWindow::newScan_clicked(){
+    if(this->progressSaved == false) {
+        auto ret = this->runWarningMsgBox("New scan", "Are you sure you want to run new scan without saving?");
+
+        if (ret == QMessageBox::No) {
+            return;
+        }
+    }
+
     this->openPage(PageTypes::NetworkSelectingPage);
 }
 
@@ -740,12 +811,64 @@ void MainWindow::saveToJson_clicked() {
     jsonFile.open(QFile::WriteOnly);
     jsonFile.write(jsonDoc.toJson());
 
+    this->progressSaved = true;
 }
 
 void MainWindow::saveToDb_clicked() {
-
+    this->saveToDb();
+    this->progressSaved = true;
 }
 
 void MainWindow::exitWithoutSave_clicked() {
     QApplication::exit(0);
+}
+
+void MainWindow::hostDetectionIsComplete(const QString& hostIP, bool isActive) {
+    if (isActive) {
+        ui->activeHostBrowser->append(hostIP + " is ACTIVE;\n");
+    }
+    auto currentPgrogressBarValue = ui->hostDetectionProgressBar->value();
+    ui->hostDetectionProgressBar->setValue(currentPgrogressBarValue + 1);
+}
+
+void MainWindow::threadCompleteHostsDetection(const QList<QString>& activeHosts) {
+    this->activeHosts += activeHosts;
+
+    auto allIsComplete = true;
+
+    foreach(const auto& thread, this->hostDetectorThreads) {
+        if (!thread->isFinished()) {
+            allIsComplete = false;
+            break;
+        }
+    }
+
+    if (allIsComplete) {
+        ui->nextButton->setDisabled(false);
+    }
+}
+
+void MainWindow::portDetectionIsComplete(const QString& hostIP, const quint32& port, const PortStatus& portStatus) {
+    if (portStatus == PortStatus::OPEN) {
+        ui->openPortsBrowser->append(hostIP + QString(":%1").arg(port) +  + " --- OPEN;\n");
+    }
+
+    auto currentPgrogressBarValue = ui->portsDetectionProgressBar->value();
+    ui->portsDetectionProgressBar->setValue(currentPgrogressBarValue + 1);
+}
+
+void MainWindow::threadCompletePortsDetection(const QList<QString>& hostsPortsStatus) {
+    this->portsInfo += hostsPortsStatus;
+    auto allIsComplete = true;
+
+    foreach(const auto& thread, this->portScannersThreads) {
+        if (!thread->isFinished()) {
+            allIsComplete = false;
+            break;
+        }
+    }
+
+    if (allIsComplete) {
+        ui->nextButton->setDisabled(false);
+    }
 }
