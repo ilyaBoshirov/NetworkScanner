@@ -25,7 +25,7 @@ QList<QString> Scanner::getActiveHosts() {
     return this->activeHosts;
 }
 
-void Scanner::addActiveHost(QString hostIp) {
+void Scanner::addActiveHost(const QString& hostIp) {
     this->activeHosts.append(hostIp);
 }
 
@@ -41,7 +41,7 @@ void Scanner::initByNetworksString(QString& networksString) {
     auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
 
     this->scannedNetworks.clear();
-    foreach (auto network, networks) {
+    foreach (const auto& network, networks) {
         if (!networkIsCorrect(network)) {
             this->scannedNetworks.append(network);
         }
@@ -49,26 +49,26 @@ void Scanner::initByNetworksString(QString& networksString) {
 }
 
 size_t Scanner::getAllHostNumber() {
-    size_t allHostNumber{0};
+    auto allHostNumber{0};
 
     if (this->scannedNetworks.size() == 0) {
         return allHostNumber;
     }
 
-    foreach (auto net, this->getScannedNetworks()) {
+    foreach (const auto& net, this->getScannedNetworks()) {
         auto mask = net.split("/")[1].toInt();
 
-        allHostNumber += size_t(1 << (32 - mask)) - 2;
+        allHostNumber += (1 << (32 - mask)) - 2;
     }
     return allHostNumber;
 }
 
 // static methods -------------------------------------------------------------------------------------
 
-QList<QString> Scanner::getNetworksHosts(QList<QString> networks) {
+QList<QString> Scanner::getNetworksHosts(const QList<QString>& networks) {
     QList<QString> networksHosts{};
 
-    foreach (auto network, networks) {
+    foreach (const auto& network, networks) {
         networksHosts += getNetworkIPs(network);
     }
 
@@ -79,7 +79,7 @@ QList<QString> Scanner::getNetworksFromString(QString& networksString) {
     auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
 
     QList<QString> resNet{};
-    foreach (auto network, networks) {
+    foreach (const auto& network, networks) {
         if (networkIsCorrect(network)) {
             resNet.append(network);
         }
@@ -100,8 +100,9 @@ QList<QString> Scanner::getNetworksFromFile(const QString& filePath) {
     QRegularExpressionMatchIterator matchIterator;
     QRegularExpressionMatch match;
     QTextStream in(&file);
+
     while (!in.atEnd()) {
-        QString line = in.readLine();
+        auto line = in.readLine();
         matchIterator = re.globalMatch(line);
 
         while (matchIterator.hasNext()) {
@@ -111,9 +112,7 @@ QList<QString> Scanner::getNetworksFromFile(const QString& filePath) {
                 networks.append(net);
             }
         }
-
     }
-    qDebug() << networks;
 
     return networks;
 }
@@ -122,7 +121,7 @@ QMap<QString, QString> Scanner::getPhysicalInterfaces() {
     QMap<QString, QString> ifacesAddresses{};
     auto ifaces = QNetworkInterface::allInterfaces();
 
-    foreach (auto iface, ifaces) {
+    foreach (const auto& iface, ifaces) {
 
         if (!isPhysicalInterface(iface)) {
             continue;
@@ -130,7 +129,7 @@ QMap<QString, QString> Scanner::getPhysicalInterfaces() {
 
         auto addressEntries = iface.addressEntries();
 
-        foreach (auto entry, addressEntries) {
+        foreach (const auto& entry, addressEntries) {
             auto ifaceIP = entry.ip();
 
             if (QAbstractSocket::IPv4Protocol == ifaceIP.protocol()) {
@@ -146,7 +145,7 @@ QList<QString> Scanner::getCurrentNetworks() {
     QList<QString> networks{};
     auto ifaces = QNetworkInterface::allInterfaces();
 
-    foreach (auto iface, ifaces) {
+    foreach (const auto& iface, ifaces) {
 
         if (!isPhysicalInterface(iface)) {
             continue;
@@ -154,7 +153,7 @@ QList<QString> Scanner::getCurrentNetworks() {
 
         auto addressEntries = iface.addressEntries();
 
-        foreach (auto entry, addressEntries) {
+        foreach (const auto& entry, addressEntries) {
             auto ifaceIP = entry.ip();
 
             if (QAbstractSocket::IPv4Protocol == ifaceIP.protocol()) {
@@ -171,7 +170,7 @@ QMap<QString, QString> Scanner::getCurrentIPs() {
 
     auto ifaces = QNetworkInterface::allInterfaces();
 
-    foreach (auto iface, ifaces) {
+    foreach (const auto& iface, ifaces) {
 
         if (!isPhysicalInterface(iface)) {
             continue;
@@ -179,7 +178,7 @@ QMap<QString, QString> Scanner::getCurrentIPs() {
 
         auto addressEntries = iface.addressEntries();
 
-        foreach (auto entry, addressEntries) {
+        foreach (const auto& entry, addressEntries) {
             auto ifaceIP = entry.ip();
 
             if (QAbstractSocket::IPv4Protocol == ifaceIP.protocol()) {
@@ -191,7 +190,7 @@ QMap<QString, QString> Scanner::getCurrentIPs() {
     return ifacesAddresses;
 }
 
-QString Scanner::getNetwork(QHostAddress ip, QHostAddress netmask) {
+QString Scanner::getNetwork(const QHostAddress& ip, const QHostAddress& netmask) {
     auto ipOctets = ip.toString().split(".");
     auto netmaskOctets = netmask.toString().split(".");
 
@@ -210,9 +209,9 @@ QString Scanner::getNetwork(QHostAddress ip, QHostAddress netmask) {
 
     quint32 digitNetmask = 0;
 
-    foreach (auto octet, netmaskOctets) {
+    foreach (const auto& octet, netmaskOctets) {
         quint32 dOctet = octet.toInt();
-        for(auto i = 7; i >= 0; --i) {
+        for(auto i{ 7 }; i >= 0; --i) {
             if (((dOctet >> i) & 0x1) == 1) {
                 ++digitNetmask;
             }
@@ -227,7 +226,7 @@ QString Scanner::getNetwork(QHostAddress ip, QHostAddress netmask) {
     return network;
 }
 
-QList<QString> Scanner::getNetworkIPs(QString network) {
+QList<QString> Scanner::getNetworkIPs(const QString& network) {
     // network in format "192.168.0.0/24"
 
     auto networkParts = network.split("/");
@@ -249,7 +248,7 @@ QList<QString> Scanner::getNetworkIPs(QString network) {
     return hosts;
 }
 
-bool Scanner::isPhysicalInterface(QNetworkInterface interface) {
+bool Scanner::isPhysicalInterface(const QNetworkInterface& interface) {
     auto ifaceFlags = interface.flags();
 
     if ((bool)(ifaceFlags & interface.IsLoopBack) == true) {
@@ -273,7 +272,7 @@ bool Scanner::isPhysicalInterface(QNetworkInterface interface) {
     return true;
 }
 
-quint32 Scanner::ipToInteger(QString stringIP) {
+quint32 Scanner::ipToInteger(const QString& stringIP) {
     auto ipOctets = stringIP.split(".");
 
     quint32 integerIP {0};
@@ -286,7 +285,7 @@ quint32 Scanner::ipToInteger(QString stringIP) {
     return integerIP;
 }
 
-QString Scanner::integerToIp(quint32 integerIP) {
+QString Scanner::integerToIp(const quint32& integerIP) {
     QString stringIP{""};
 
     stringIP.append(QString::number((integerIP >> 24) & 0xff));
@@ -316,7 +315,7 @@ QString Scanner::currentNetworksToQSting() {
     return networksString;
 }
 
-bool Scanner::networkIsCorrect(QString networkString) {
+bool Scanner::networkIsCorrect(const QString& networkString) {
     auto networkParts = networkString.split("/");
 
     if (networkParts.size() != 2) {
@@ -345,11 +344,14 @@ bool Scanner::networkIsCorrect(QString networkString) {
     return true;
 }
 
-bool Scanner::networksStringIsCorrect(QString networksString) {
+bool Scanner::networksStringIsCorrect(const QString& networksString) {
+    if (networksString.length() == 0) {
+        return false;
+    }
 
     auto networks = networksString.split(QRegularExpression("[,;\r\n\t ]+"));
 
-    foreach (auto network, networks) {
+    foreach (const auto& network, networks) {
         if (!networkIsCorrect(network)) {
             return false;
         }
@@ -358,7 +360,7 @@ bool Scanner::networksStringIsCorrect(QString networksString) {
     return true;
 }
 
-bool Scanner::ipInNetwork(QString ip, QString network) {
+bool Scanner::ipInNetwork(const QString& ip, const QString& network) {
     auto networkParts = network.split("/");
 
     auto start = ipToInteger(networkParts[0]);
