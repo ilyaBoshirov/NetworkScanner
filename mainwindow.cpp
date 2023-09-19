@@ -20,6 +20,10 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     connect(ui->nextButton, &QPushButton::clicked, this, &MainWindow::nextButton_clicked);
     connect(ui->prevButton, &QPushButton::clicked, this, &MainWindow::prevButton_clicked);
 
+    // menu bar buttons
+
+    connect(ui->aboutButton, &QMenu::aboutToShow, this, &MainWindow::aboutButton_clicked);
+
     // network input page -------------------------------------------------------------------------
     connect(ui->manualRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
     connect(ui->fileRadioButton, &QPushButton::clicked, this, &MainWindow::radioButton_clicked);
@@ -878,4 +882,13 @@ void MainWindow::threadCompletePortsDetection(const QList<QString>& hostsPortsSt
     if (allIsComplete) {
         ui->nextButton->setDisabled(false);
     }
+}
+
+void MainWindow::aboutButton_clicked() {
+    QMessageBox msgBox;
+    msgBox.setText("This application was create by Ilya Boshirov");
+    msgBox.setInformativeText("Version: 1.0\ngit: https://github.com/ilyaBoshirov");
+    msgBox.setWindowTitle("ABOUT");
+    msgBox.setStandardButtons(QMessageBox::Ok);
+    msgBox.exec();
 }
