@@ -68,7 +68,7 @@ public:
     int runWarningMsgBox(const QString& text, const QString& infoText);
     void drowAboutPage();  // todo
 
-    // some functions for updating some of ui components
+    // functions for updating some of ui components
     void setNetworkInput();
     void setPortsInputs();
 
