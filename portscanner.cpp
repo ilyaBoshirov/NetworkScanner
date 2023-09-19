@@ -15,7 +15,52 @@ PortScanner::PortScanner(const QList<QPair<QString, QList<quint32>>>& targets) :
     this->targets = targets;
 }
 
-QList<quint32> PortScanner::getPortsRange(quint32 first, quint32 last) {
+QMap<QString,QString> PortScanner::getHostsOS() {
+    return this->hostsOS;
+}
+
+void PortScanner::threadDetectHostOpenPorts() {
+    QTcpSocket socket;
+    PortStatus portStatus;
+
+    foreach (const auto& targetPair, this->targets) {
+        foreach(const auto& port, targetPair.second) {
+            portStatus = PortStatus::CLOSE;
+            socket.connectToHost(targetPair.first, port);
+
+            if(socket.waitForConnected(scanTimeout)){
+                socket.disconnectFromHost();
+                portStatus = PortStatus::OPEN;
+                this->addHostPortStatus(targetPair.first, port, portStatus);
+            }
+            socket.disconnectFromHost();
+
+            emit portIsComplete(targetPair.first, port, portStatus);
+        }
+    }
+}
+
+void PortScanner::addHostPortStatus(const QString& host, const quint32& port, const PortStatus& status) {
+    this->hostsPorts[qMakePair(host, port)] = status;
+
+    // ip|port|status
+    QString statusStr("%1|%2|%3");
+    this->hostsPortsStatus.append(statusStr.arg(host).arg(port).arg(status == OPEN ? "OPEN" : "CLOSE/FILTERED"));
+}
+
+QString PortScanner::getServiceName(const QString& ipAddress, const quint32& port) {
+    // todo add
+    return "TODO";
+}
+
+QString PortScanner::detectHostOS(const QString& ipAddress) {
+    // todo
+    return "";
+}
+
+// static functions -------------------------------------------------------------------------
+
+QList<quint32> PortScanner::getPortsRange(const quint32& first, const quint32& last) {
     QList<quint32> ports{};
     ports.resize(last - first + 1);
     std::iota(ports.begin(), ports.end(), firstPort);
@@ -38,60 +83,14 @@ QList<QPair<QString, QList<quint32>>> PortScanner::getTargets(const QList<QStrin
 QList<QPair<QString, QList<quint32>>> PortScanner::getTargets(const QList<QString>& activeHosts, const QList<quint32>& ports) {
     QList<QPair<QString, QList<quint32>>> targets{};
 
-    foreach (const auto host, activeHosts) {
+    foreach (const auto& host, activeHosts) {
         targets.append(qMakePair(host, ports));
     }
 
     return targets;
 }
 
-void PortScanner::threadDetectHostOpenPorts() {
-    QTcpSocket socket;
-    PortStatus portStatus;
-
-    foreach (auto targetPair, this->targets) {
-        foreach(auto& port, targetPair.second) {
-            portStatus = PortStatus::CLOSE;
-            socket.connectToHost(targetPair.first, port);
-
-            if(socket.waitForConnected(scanTimeout)){
-                socket.disconnectFromHost();
-                portStatus = PortStatus::OPEN;
-                this->addHostPortStatus(targetPair.first, port, portStatus);
-            }
-            socket.disconnectFromHost();
-
-            emit portIsComplete(targetPair.first, port, portStatus);
-        }
-    }
-}
-
-void PortScanner::addHostPortStatus(QString host, quint32 port, PortStatus status) {
-    this->hostsPorts[qMakePair(host, port)] = status;
-
-    // ip|port|status
-    QString statusStr("%1|%2|%3");
-    this->hostsPortsStatus.append(statusStr.arg(host).arg(port).arg(status == OPEN ? "OPEN" : "CLOSE/FILTERED"));
-}
-
-QString PortScanner::getServiceName(QString ipAddress, quint32 port) {
-    QTcpSocket socket;
-
-    socket.connectToHost("172.16.16.192", 22);
-    if(socket.waitForConnected(scanTimeout)){
-        qDebug() << socket.peerName();
-        qDebug() << QString::fromUtf8(socket.read(1024));
-    }
-    socket.disconnectFromHost();
-
-    return "TODO";
-}
-
 void PortScanner::run() {
     this->threadDetectHostOpenPorts();
     emit portScanningComplete(this->hostsPortsStatus);
-}
-
-QMap<QString,QString> PortScanner::getHostsOS() {
-    return this->hostsOS;
 }
