@@ -8,6 +8,7 @@
 #include <QSet>
 #include <QMap>
 #include <QDate>
+#include <QColor>
 
 
 // constructors ----------------------------------------------------------------------------------------
@@ -526,7 +527,7 @@ QString getCurrentDate() {
     return QDate::currentDate().toString("yyyyMMdd");
 }
 
-void MainWindow::saveToDb() {
+bool MainWindow::saveToDb() {
     QList<QString> scannedNetworks{};
     if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
         QString networksStr = ui->manualNetworkInput->text();
@@ -538,6 +539,8 @@ void MainWindow::saveToDb() {
     if (this->networkInitializationType == NetworkInitializationTypes::CurrentNetwork) {
         scannedNetworks = Scanner::getCurrentNetworks();
     }
+
+    auto successSave{true};
 
     // accumulate ip resulst
     QMap<QString, QString> resultIpsInfo{};
@@ -564,6 +567,7 @@ void MainWindow::saveToDb() {
         while(true) {
             if (this->dbManager.tableisExist(tableName)) {
                 ++counter;
+                tableName = QString("Net_%1_%2_%3").arg(newNet).arg(getCurrentDate()).arg(counter);
             } else {
                 counter = 0;
                 break;
@@ -572,7 +576,8 @@ void MainWindow::saveToDb() {
 
         if(!this->dbManager.createNewTable(tableName)) {
             qInfo() << "Cant create table";
-            return;
+            successSave = false;
+            return successSave;;
         }
 
         // add row to table
@@ -581,7 +586,7 @@ void MainWindow::saveToDb() {
             auto ports = ipInfo.second;
 
             if (Scanner::ipInNetwork(ip, network)) {
-                this->dbManager.addNewIP(ip, ports);
+                successSave = successSave && this->dbManager.addNewIP(ip, ports);
                 keysForDelete.append(ip);
             }
         }
@@ -592,6 +597,8 @@ void MainWindow::saveToDb() {
         }
         keysForDelete.clear();
     }
+
+    return successSave;
 }
 
 // static functions ---------------------------------------------------------------------------------------
@@ -722,7 +729,7 @@ void MainWindow::fileDialogOpenButton_clicked() {
     auto fileName = QFileDialog::getOpenFileName(
                         this,
                         tr("Open File"),
-                        QApplication::applicationFilePath(),
+                        QApplication::applicationDirPath(),
                         "All fils (*.*);;Text files (*.txt)"
                     );
 
@@ -809,7 +816,7 @@ void MainWindow::saveToJson_clicked() {
     auto fileName = QFileDialog::getSaveFileName(
         this,
         tr("Save File"),
-        QApplication::applicationFilePath(),
+        QApplication::applicationDirPath(),
         "JSON (*.json)"
         );
 
@@ -823,11 +830,21 @@ void MainWindow::saveToJson_clicked() {
     jsonFile.write(jsonDoc.toJson());
 
     this->progressSaved = true;
+    ui->statusBrowser->setTextColor(QColor(37, 156, 109));
+    ui->statusBrowser->setText(QString("Save in JSON file %1 is SUCCESS").arg(fileName));
 }
 
 void MainWindow::saveToDb_clicked() {
-    this->saveToDb();
-    this->progressSaved = true;
+    auto isSuccess = this->saveToDb();
+
+    if (isSuccess) {
+        this->progressSaved = true;
+        ui->statusBrowser->setTextColor(QColor(37, 156, 109));
+        ui->statusBrowser->setText(QString("Save in database %1 is SUCCESS").arg(this->dbManager.getDbName()));
+    } else {
+        ui->statusBrowser->setTextColor(QColor(148, 14, 45));
+        ui->statusBrowser->setText(QString("Failed while saving in database %1. Try later").arg(this->dbManager.getDbName()));
+    }
 }
 
 void MainWindow::exitWithoutSave_clicked() {

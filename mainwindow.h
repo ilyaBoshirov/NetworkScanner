@@ -89,7 +89,7 @@ public:
 
     // saving results
     QJsonObject getJsonReport();
-    void saveToDb();
+    bool saveToDb();
 
     // static functions
     static QList<quint32> portsStrToQList(const QString& portsStr);
