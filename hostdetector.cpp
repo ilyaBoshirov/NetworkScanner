@@ -7,11 +7,11 @@ HostDetector::HostDetector() : QThread(), Scanner() {
     this->scanType = ScanningTypes::Ping;
 }
 
-HostDetector::HostDetector(ScanningTypes scanType) : QThread(), Scanner() {
+HostDetector::HostDetector(const ScanningTypes& scanType) : QThread(), Scanner() {
     this->scanType = scanType;
 }
 
-HostDetector::HostDetector(const QList<QString>& hosts, ScanningTypes scanType) : QThread(), Scanner() {
+HostDetector::HostDetector(const QList<QString>& hosts, const ScanningTypes& scanType) : QThread(), Scanner() {
     this->scannedHosts = hosts;
     this->scanType = scanType;
 }
@@ -24,8 +24,8 @@ void HostDetector::threadPingCheckHosts() {
 
     bool hostIsActive;
 
-    foreach (const auto host, this->scannedHosts) {
-        auto exitCode = QProcess::execute("ping", QStringList() << host <<nParameter<<pingCount<<wParameter<<pingWaitTime);
+    foreach (const auto& host, this->scannedHosts) {
+        auto exitCode = QProcess::execute("ping", QStringList() << host << nParameter << pingCount << wParameter << pingWaitTime);
         hostIsActive = false;
         if (exitCode == 0) {
             this->addActiveHost(host);
@@ -39,10 +39,10 @@ void HostDetector::threadSynCheckHosts() {
     QTcpSocket socket;
     bool hostIsActive;
 
-    foreach (const auto host, this->scannedHosts) {
+    foreach (const auto& host, this->scannedHosts) {
         hostIsActive = false;
 
-        foreach(const auto port, this->defaultSYNPorts) {
+        foreach(const auto& port, this->defaultSYNPorts) {
             socket.connectToHost(host, port);
             if(socket.waitForConnected(scanTimeout)){
                 socket.disconnectFromHost();
@@ -58,7 +58,7 @@ void HostDetector::threadSynCheckHosts() {
 }
 
 void HostDetector::threadArpCheckHosts() {
-
+    // todo add function
 }
 
 void HostDetector::run() {

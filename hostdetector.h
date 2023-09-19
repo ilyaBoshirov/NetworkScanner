@@ -15,24 +15,23 @@ class HostDetector : public QThread, public Scanner  {
     Q_OBJECT
 
     const QList<quint32> defaultSYNPorts = {22, 135, 139, 445};
-
     ScanningTypes scanType{Ping};
+
 public:
     HostDetector();
-    HostDetector(ScanningTypes scanType);
-    HostDetector(const QList<QString>& hosts, ScanningTypes scanType);
+    HostDetector(const ScanningTypes& scanType);
+    HostDetector(const QList<QString>& hosts, const ScanningTypes& scanType);
 
     void threadPingCheckHosts();
     void threadArpCheckHosts();
     void threadSynCheckHosts();
 
 private:
-
     void run() override;
 
 signals:
-    void hostIsComplete(QString hostIP, bool isActive);
-    void completeDetection(QList<QString> activeHosts);
+    void hostIsComplete(const QString& hostIP, bool isActive);
+    void completeDetection(const QList<QString>& activeHosts);
 };
 
 #endif // HOSTDETECTOR_H
