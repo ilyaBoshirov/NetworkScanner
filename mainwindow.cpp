@@ -45,6 +45,8 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
     ui->lastPortValue->setMinimum(PortScanner::firstPort);
     ui->lastPortValue->setMaximum(PortScanner::lastPort);
 
+    ui->portThread->setMinimum(1);
+
     connect(ui->manualPortRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
     connect(ui->rangePortRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
     connect(ui->allPortsRadioButton, &QPushButton::clicked, this, &MainWindow::portsInputRadioBtn_clicked);
@@ -366,7 +368,7 @@ void MainWindow::startOpenPortsDetection() {
 
     // start threading
 
-    quint32 threadNumber = ui->threadNumberBox->value();  // todo add thread number to page
+    quint32 threadNumber = ui->portThread->value();  // todo add thread number to page
 
     auto targetsForThread = MainWindow::splitHostsAndPortsForThread(this->activeHosts, portsForScan, threadNumber);
 
@@ -551,7 +553,10 @@ void MainWindow::saveToDb() {
     size_t counter = 1;
     QList<QString> keysForDelete{};
     foreach (const auto& network, scannedNetworks) {
-        auto tableName = QString("%1_%2_%3").arg(network).arg(getCurrentDate()).arg(counter);
+        QString newNet{network};
+        newNet = newNet.replace('.', '_');
+        newNet = newNet.replace('/', '_');
+        auto tableName = QString("Net_%1_%2_%3").arg(newNet).arg(getCurrentDate()).arg(counter);
         while(true) {
             if (this->dbManager.tableisExist(tableName)) {
                 ++counter;
@@ -791,6 +796,8 @@ void MainWindow::newScan_clicked(){
         }
     }
 
+    this->activeHosts.clear();
+    this->portsInfo.clear();
     this->openPage(PageTypes::NetworkSelectingPage);
 }
 
