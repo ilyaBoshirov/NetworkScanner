@@ -66,7 +66,7 @@ public:
 
     // work with extra windows
     int runWarningMsgBox(const QString& text, const QString& infoText);
-    void drowAboutPage();  // todo
+    void drowAboutPage();
 
     // functions for updating some of ui components
     void setNetworkInput();
@@ -118,5 +118,6 @@ private slots:
     // for port scanner (updating progress bar and accumulate result)
     void portDetectionIsComplete(const QString& hostIP, const quint32& port, const PortStatus& portStatus);
     void threadCompletePortsDetection(const QList<QString>& hostsPortsStatus);
+    void aboutButton_clicked();
 };
 #endif // MAINWINDOW_H
