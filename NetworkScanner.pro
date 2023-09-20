@@ -21,6 +21,7 @@ HEADERS += \
     hostdetector.h \
     mainwindow.h \
     portscanner.h \
+    portservice.h \
     scanner.h
 
 FORMS += \
