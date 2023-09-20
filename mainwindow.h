@@ -25,7 +25,8 @@ enum PageTypes {
     HostDetectingPage,
     PortsSelectingPage,
     PortsDetectingPage,
-    ExitPage
+    ExitPage,
+    ResultsPage
 };
 
 enum NetworkInitializationTypes {
@@ -47,7 +48,7 @@ class MainWindow : public QMainWindow {
     QVector<HostDetector*> hostDetectorThreads{};  // container for threads
     QVector<PortScanner*> portScannersThreads{};  // container for threads
     QList<QString> activeHosts{};  // detect active hosts results repositories
-    QList<QString> portsInfo{};  // get ports info results repositories
+    QList<QString> portsInfo{};  // get ports info results repositories  FORMAT: ip|port|status
     DBManager dbManager{};  // object for saving in database
 
 public:
@@ -63,6 +64,7 @@ public:
     void drowPortsSelectingPage();
     void drowScanningPortsPage();
     void drowExitPage();
+    void drowResultsPage();  // todo
 
     // work with extra windows
     int runWarningMsgBox(const QString& text, const QString& infoText);
@@ -90,6 +92,7 @@ public:
     // saving results
     QJsonObject getJsonReport();
     bool saveToDb();
+    QMap<QString, QString> getResultInTableView();
 
     // static functions
     static QList<quint32> portsStrToQList(const QString& portsStr);
@@ -119,5 +122,6 @@ private slots:
     void portDetectionIsComplete(const QString& hostIP, const quint32& port, const PortStatus& portStatus);
     void threadCompletePortsDetection(const QList<QString>& hostsPortsStatus);
     void aboutButton_clicked();
+    void showResultsButton_clicked(); // todo
 };
 #endif // MAINWINDOW_H
