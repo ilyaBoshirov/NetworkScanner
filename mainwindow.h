@@ -1,16 +1,18 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QJsonObject>
 #include <QMainWindow>
 #include <QVector>
 
-#include <QJsonObject>
-#include <QJsonArray>
-#include <QJsonDocument>
 
 #include "dbmanager.h"
 #include "portscanner.h"
 #include "hostdetector.h"
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {

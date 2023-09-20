@@ -1,21 +1,18 @@
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
+#include "portservice.h"
 
-#include <QFileDialog>
-#include <thread>
-#include <QRegularExpression>
-#include <QMessageBox>
-#include <QSet>
-#include <QMap>
-#include <QDate>
 #include <QColor>
+#include <QDate>
+#include <QFileDialog>
+#include <QMap>
+#include <QMessageBox>
+#include <QRegularExpression>
+#include <QSet>
 #include <QStringList>
 #include <QTableWidgetItem>
-#include <QSet>
 
 #include <algorithm>
-
-#include "portservice.h"
 
 
 // constructors ----------------------------------------------------------------------------------------

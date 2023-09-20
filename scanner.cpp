@@ -1,10 +1,10 @@
 #include "scanner.h"
 
-#include <QTcpSocket>
-#include <QProcess>
 #include <QFile>
-#include <QTextStream>
+#include <QProcess>
 #include <QRegularExpression>
+#include <QTcpSocket>
+#include <QTextStream>
 
 
 Scanner::Scanner() {

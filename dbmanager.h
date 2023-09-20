@@ -1,8 +1,8 @@
 #ifndef DBMANAGER_H
 #define DBMANAGER_H
 
-#include <QString>
 #include <QList>
+#include <QString>
 #include <QSqlDatabase>
 
 #define defaultDBName "NetworkScannerResults.db"

@@ -1,10 +1,12 @@
 #include "dbmanager.h"
 
-#include <QFileInfo>
-#include <QSqlQuery>
-#include <QSqlError>
+
 #include <QApplication>
 #include <QDir>
+#include <QFileInfo>
+#include <QSqlError>
+#include <QSqlQuery>
+
 
 DBManager::DBManager() {
     this->db = QSqlDatabase::addDatabase("QSQLITE");
