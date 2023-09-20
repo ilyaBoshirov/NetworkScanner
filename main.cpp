@@ -1,7 +1,7 @@
 #include "mainwindow.h"
 
+
 #include <QApplication>
-#include <QList>
 
 
 int main(int argc, char *argv[]) {
