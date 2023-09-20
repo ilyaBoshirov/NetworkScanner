@@ -9,6 +9,13 @@
 #include <QMap>
 #include <QDate>
 #include <QColor>
+#include <QStringList>
+#include <QTableWidgetItem>
+#include <QSet>
+
+#include <algorithm>
+
+#include "portservice.h"
 
 
 // constructors ----------------------------------------------------------------------------------------
@@ -63,6 +70,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent), ui(new Ui::MainWi
 
     // exit page --------------------------------------------------------------------
 
+    connect(ui->showResultsButton, &QPushButton::clicked, this, &MainWindow::showResultsButton_clicked);
     connect(ui->newScanButton, &QPushButton::clicked, this, &MainWindow::newScan_clicked);
     connect(ui->saveToJsonButton, &QPushButton::clicked, this, &MainWindow::saveToJson_clicked);
     connect(ui->saveToDbButton, &QPushButton::clicked, this, &MainWindow::saveToDb_clicked);
@@ -121,8 +129,17 @@ void MainWindow::openPage(const PageTypes &pageType) {
     }
     else if(pageType == PageTypes::ExitPage) {
         this->drowExitPage();
-    }
 
+        if (prevPage == PageTypes::ResultsPage) {
+            ui->nextButton->setHidden(false);
+            ui->exitButton->setHidden(false);
+        }
+    }
+    else if(pageType == PageTypes::ResultsPage) {
+        this->drowResultsPage();
+        ui->nextButton->setHidden(true);
+        ui->exitButton->setHidden(true);
+    }
 }
 
 void MainWindow::drowWelcomePage() {
@@ -166,6 +183,48 @@ void MainWindow::drowPortsSelectingPage() {
 void MainWindow::drowExitPage() {
     ui->nextButton->setDisabled(true);
     ui->prevButton->setDisabled(false);
+}
+
+bool comparator(const QString &v1, const QString &v2) {
+    return v1.toInt() < v2.toInt();
+}
+
+void MainWindow::drowResultsPage() {
+    ui->resultsTable->setColumnCount(3);
+    ui->resultsTable->setShowGrid(true);
+
+    QStringList header{};
+    header << "ID" << "IP Address" << "OS Version" << "Open ports";
+
+    ui->resultsTable->setHorizontalHeaderLabels(header);
+    ui->resultsTable->horizontalHeader()->setStretchLastSection(true);
+
+    auto hostsInfo = this->getResultInTableView();
+
+    auto rowCounter{0};
+    for(const auto& ipInfo : hostsInfo.toStdMap()) {
+        auto ip = ipInfo.first;
+        auto ports = ipInfo.second.split(',').toList();
+        std::sort(ports.begin(), ports.end(), comparator);
+        QString portStr{""};
+        QString onePortInfoStr{"%1 (%2), "};
+
+        QList<QString> completePorts{};
+        foreach (const auto& port, ports) {
+            if (port == "" || completePorts.contains(port) == true) {
+                continue;
+            }
+            portStr.append(onePortInfoStr.arg(port).arg(getPortNumberInfoStatic(port.toInt())));
+            completePorts.append(port);
+        }
+
+        ui->resultsTable->insertRow(rowCounter);
+        ui->resultsTable->setItem(rowCounter,0, new QTableWidgetItem(ip));
+        ui->resultsTable->setItem(rowCounter,1, new QTableWidgetItem("Not now :)"));
+        ui->resultsTable->setItem(rowCounter,2, new QTableWidgetItem(portStr));
+
+        ++rowCounter;
+    }
 }
 
 // work with pages ---------------------------------------------------------------------------------------
@@ -532,6 +591,23 @@ QString getCurrentDate() {
     return QDate::currentDate().toString("yyyyMMdd");
 }
 
+QMap<QString, QString> MainWindow::getResultInTableView() {
+    QMap<QString, QString> result{}; // ip -> str with info
+    foreach (const auto& infoStr, this->portsInfo) {
+        auto parts = infoStr.split("|");
+        auto ip = parts[0];
+        auto port = parts[1];
+        auto info = parts[2];
+
+        if(result.find(ip) == result.end()) {
+            result[ip] = "";
+        }
+        result[ip] += QString("%1,").arg(port);
+    }
+
+    return result;
+}
+
 bool MainWindow::saveToDb() {
     QList<QString> scannedNetworks{};
     if (this->networkInitializationType == NetworkInitializationTypes::Manual) {
@@ -548,18 +624,7 @@ bool MainWindow::saveToDb() {
     auto successSave{true};
 
     // accumulate ip resulst
-    QMap<QString, QString> resultIpsInfo{};
-    foreach (const auto& infoStr, this->portsInfo) {
-        auto parts = infoStr.split("|");
-        auto ip = parts[0];
-        auto port = parts[1];
-        auto info = parts[2];
-
-        if(resultIpsInfo.find(ip) == resultIpsInfo.end()) {
-            resultIpsInfo[ip] = "";
-        }
-        resultIpsInfo[ip] += QString("%1,").arg(port);
-    }
+    auto  resultIpsInfo = this->getResultInTableView();
 
     // create tables for scanning networks
     size_t counter = 1;
@@ -908,4 +973,8 @@ void MainWindow::threadCompletePortsDetection(const QList<QString>& hostsPortsSt
 
 void MainWindow::aboutButton_clicked() {
     this->drowAboutPage();
+}
+
+void MainWindow::showResultsButton_clicked() {
+    this->openPage(PageTypes::ResultsPage);
 }
