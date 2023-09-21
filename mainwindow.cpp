@@ -191,7 +191,7 @@ void MainWindow::drowResultsPage() {
     ui->resultsTable->setShowGrid(true);
 
     QStringList header{};
-    header << "ID" << "IP Address" << "OS Version" << "Open ports";
+    header << "IP Address" << "OS Version" << "Open ports";
 
     ui->resultsTable->setHorizontalHeaderLabels(header);
     ui->resultsTable->horizontalHeader()->setStretchLastSection(true);
