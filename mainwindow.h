@@ -71,6 +71,7 @@ public:
     // work with extra windows
     int runWarningMsgBox(const QString& text, const QString& infoText);
     void drowAboutPage();
+    void checkScanTypeUi();
 
     // functions for updating some of ui components
     void setNetworkInput();
