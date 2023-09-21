@@ -3,7 +3,10 @@
 
 #include "scanner.h"
 
+#include <QApplication>
+#include <QDir>
 #include <QThread>
+
 
 enum ScanningTypes {
     Ping,
@@ -16,11 +19,15 @@ class HostDetector : public QThread, public Scanner  {
 
     const QList<quint32> defaultSYNPorts = {22, 135, 139, 445};
     ScanningTypes scanType{Ping};
+    inline static const QString arpScriptName{QString(QDir::separator()) + "scripts" + QString(QDir::separator()) + "ARPConnector.exe"};
 
 public:
     HostDetector();
     HostDetector(const ScanningTypes& scanType);
     HostDetector(const QList<QString>& hosts, const ScanningTypes& scanType);
+
+    static QString getArpScriptPath();
+    static QString getArpScriptName();
 
     void threadPingCheckHosts();
     void threadArpCheckHosts();

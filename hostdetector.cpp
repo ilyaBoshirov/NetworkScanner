@@ -58,7 +58,22 @@ void HostDetector::threadSynCheckHosts() {
 }
 
 void HostDetector::threadArpCheckHosts() {
-    // todo add function
+    QString ipParameter = "--ip"; //
+    QString timeoutParameter = "-t";
+    QString timeoutValue = "0.05";  // seconds
+
+    bool hostIsActive;
+
+    foreach (const auto& host, this->scannedHosts) {
+        qDebug() << HostDetector::getArpScriptPath();
+        auto exitCode = QProcess::execute(HostDetector::getArpScriptPath(), QStringList() << ipParameter << host << timeoutParameter << timeoutValue);
+        hostIsActive = false;
+        if (exitCode == 0) {
+            this->addActiveHost(host);
+            hostIsActive = true;
+        }
+        emit this->hostIsComplete(host, hostIsActive);
+    }
 }
 
 void HostDetector::run() {
@@ -76,4 +91,12 @@ void HostDetector::run() {
     }
 
     emit completeDetection(this->getActiveHosts());
+}
+
+QString HostDetector::getArpScriptPath() {
+    return QApplication::applicationDirPath() +  HostDetector::arpScriptName;
+}
+
+QString HostDetector::getArpScriptName() {
+    return HostDetector::arpScriptName;
 }
