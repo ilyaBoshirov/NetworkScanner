@@ -5,6 +5,7 @@
 #include <QColor>
 #include <QDate>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QMap>
 #include <QMessageBox>
 #include <QRegularExpression>
@@ -156,6 +157,7 @@ void MainWindow::drowNetworkSelectingPage() {
 void MainWindow::drowScanningTypePage() {
     ui->nextButton->setDisabled(this->scanningType == -1 ? true : false);
     ui->prevButton->setDisabled(false);
+    this->checkScanTypeUi();
 }
 
 void MainWindow::drowDetectingHostsPage() {
@@ -256,6 +258,13 @@ void MainWindow::setPortsInputs() {
     ui->manualPortLineEdit->setDisabled(!ui->manualPortRadioButton->isChecked());
     ui->firstPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
     ui->lastPortValue->setDisabled(!ui->rangePortRadioButton->isChecked());
+}
+
+void MainWindow::checkScanTypeUi() {
+    QString scriptPath = HostDetector::getArpScriptPath();
+    bool fileExists = QFileInfo::exists(scriptPath) && QFileInfo(scriptPath).isFile();
+
+    ui->arpRadioButton->setHidden(!fileExists);
 }
 
 // check correctness of user inputs and choice ------------------------------------------------------------------
